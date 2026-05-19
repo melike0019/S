@@ -1,158 +1,127 @@
 import 'dart:convert';
 import 'dart:io';
-
+ 
 import 'package:flutter/foundation.dart';
-
 import 'package:http/http.dart' as http;
-
+ 
 import '../core/api_config.dart';
 import '../models/clothing_item_model.dart';
 import '../models/weather_model.dart';
-
+ 
 // ---------------------------------------------------------------------------
-// Markdown temizleyici ve Dil Düzeltici
+// Türkçe Temizleyici — Halüsinasyon Önleme Katmanı
 // ---------------------------------------------------------------------------
-/// Model yabancı dil (İngilizce/Rusça) sızdırırsa anında Türkçeleştirir.
+ 
 String _sanitizeTurkishOnly(String text) {
   if (text.isEmpty) return text;
   var s = text;
-  final latinToTr = <RegExp, String>{
-    // İngilizce sızıntıları
-    RegExp(r'\b[Ss]PF\s*[0-9]+\b'): 'yüksek güneş koruyuculu ürün',
-    RegExp(r'\b[Hh][Yy]aluronic\b'): 'hiluronik asit',
-    RegExp(r'\b[Nn]iacinamide\b'): 'niasinamid',
-    RegExp(r'\bmorning\s+routine\b', caseSensitive: false): 'sabah rutini',
-    RegExp(r'\b[Dd]aily\s+routine\b', caseSensitive: false): 'günlük rutin',
-    RegExp(r'\b[Nn]aturally\b'): 'doğal biçimde',
-    RegExp(r'\b[Hh]ydrating\b'): 'nemlendirici',
-    RegExp(r'\b[Hh]ydration\b'): 'nemlendirme',
-    RegExp(r'\bmoisturisers?\b', caseSensitive: false): 'nemlendirici',
-    RegExp(r'\bmoisturizers?\b', caseSensitive: false): 'nemlendirici',
-    RegExp(r'\bprimer\b', caseSensitive: false): 'makyaj bazı',
-    RegExp(r'\bcleanser\b', caseSensitive: false): 'yüz temizleyici',
-    RegExp(r'\btoner\b', caseSensitive: false): 'tonik',
-    RegExp(r'\bsunscreen\b', caseSensitive: false): 'güneş kremi',
-    RegExp(r'\bskincare\b', caseSensitive: false): 'cilt bakımı',
-    RegExp(r'\bglow\b', caseSensitive: false): 'doğal parlaklık',
-    RegExp(r'\bmatte\b', caseSensitive: false): 'mat',
-    RegExp(r'\bdewy\b', caseSensitive: false): 'canlı ve ıslak görünümlü',
-    // LLM Halüsinasyon Sızıntıları (Özellikle Rusça vb.)
-    RegExp(r'\bпоэтому\b', caseSensitive: false): 'bu yüzden',
-    RegExp(r'\bи\b', caseSensitive: false): 've',
+ 
+  // ── Rusça bağlaçlar ve kelimeler ──
+  final russianMap = <RegExp, String>{
+    RegExp(r'\bпоэтому\b', caseSensitive: false): 'bu nedenle',
+    RegExp(r'\bи\b'): 've',
     RegExp(r'\bдля\b', caseSensitive: false): 'için',
+    RegExp(r'\bно\b'): 'ama',
+    RegExp(r'\bили\b', caseSensitive: false): 'ya da',
+    RegExp(r'\bкак\b', caseSensitive: false): 'nasıl',
+    RegExp(r'\bже\b'): 'ise',
+    RegExp(r'\bчто\b', caseSensitive: false): 'bu',
+    RegExp(r'\bбольше\b', caseSensitive: false): 'daha fazla',
+    RegExp(r'\bможно\b', caseSensitive: false): 'mümkün',
   };
-  for (final e in latinToTr.entries) {
+  for (final e in russianMap.entries) {
     s = s.replaceAllMapped(e.key, (_) => e.value);
   }
+ 
+  // ── İngilizce kozmetik / moda terimleri ──
+  final englishMap = <RegExp, String>{
+    RegExp(r'\bglow\b', caseSensitive: false): 'doğal parlaklık',
+    RegExp(r'\bdewy\b', caseSensitive: false): 'ışıltılı',
+    RegExp(r'\bmatte\b', caseSensitive: false): 'mat',
+    RegExp(r'\bprimer\b', caseSensitive: false): 'makyaj bazı',
+    RegExp(r'\bskincare\b', caseSensitive: false): 'cilt bakımı',
+    RegExp(r'\bcleanser\b', caseSensitive: false): 'temizleyici',
+    RegExp(r'\btoner\b', caseSensitive: false): 'tonik',
+    RegExp(r'\bsunscreen\b', caseSensitive: false): 'güneş kremi',
+    RegExp(r'\bmoisturiz[ei]r\b', caseSensitive: false): 'nemlendirici',
+    RegExp(r'\bhydrat\w+\b', caseSensitive: false): 'nemlendirici',
+    RegExp(r'\bniacinamide\b', caseSensitive: false): 'niasinamid',
+    RegExp(r'\bhyaluronic\b', caseSensitive: false): 'hiyalüronik asit',
+    RegExp(r'\b[Ss][Pp][Ff]\s*\d+\b'): 'güneş koruyucu',
+    RegExp(r'\boutfit\b', caseSensitive: false): 'kombin',
+    RegExp(r'\blook\b', caseSensitive: false): 'görünüm',
+    RegExp(r'\bstyle\b', caseSensitive: false): 'stil',
+    RegExp(r'\bcasual\b', caseSensitive: false): 'günlük',
+    RegExp(r'\bchic\b', caseSensitive: false): 'şık',
+    RegExp(r'\belegant\b', caseSensitive: false): 'zarif',
+    RegExp(r'\bmorning routine\b', caseSensitive: false): 'sabah rutini',
+    RegExp(r'\bdaily routine\b', caseSensitive: false): 'günlük rutin',
+    RegExp(r'\bnaturally\b', caseSensitive: false): 'doğal biçimde',
+  };
+  for (final e in englishMap.entries) {
+    s = s.replaceAllMapped(e.key, (_) => e.value);
+  }
+ 
+  // ── Güzellik metni hataları ──
+  s = s
+      .replaceAll(RegExp(r'ton\s+açıklırlarla', caseSensitive: false),
+          'açık tonlarla')
+      .replaceAll(
+          RegExp(r'açıklırlarla', caseSensitive: false), 'açık tonlarla')
+      .replaceAll(RegExp(r'dudak[^\n.!?]{0,40}oje\b', caseSensitive: false),
+          (match) => match.group(0)!.replaceAll(
+              RegExp(r'\boje\b', caseSensitive: false), 'ruj'))
+      .replaceAll(
+          RegExp(r'tırnak[^\n.!?]{0,30}ruj\b', caseSensitive: false),
+          (match) => match
+              .group(0)!
+              .replaceAll(RegExp(r'\bruj\b', caseSensitive: false), 'oje'));
+ 
   return s.trim();
 }
-
-String _sanitizeGarbledBeautyPhrases(String text) {
-  if (text.isEmpty) return text;
-  return text
-      .replaceAll(RegExp(r'ton\s+açıklırlarla', caseSensitive: false), 'açık ya da doğal bir tonda')
-      .replaceAll(RegExp(r'açıklırlarla', caseSensitive: false), 'açık tonlarla')
-      .trim();
-}
-
-String _fixDudakPlusOjeInSentence(String text) {
-  if (text.isEmpty) return text;
-  final dudakRe = RegExp(r'dudak', caseSensitive: false);
-  final ojeWord = RegExp(r'\boje\b', caseSensitive: false);
-  if (!dudakRe.hasMatch(text) || !ojeWord.hasMatch(text)) return text;
-
-  final parts = text.split(RegExp(r'(?<=[.!?])\s+'));
-  return parts.map((sentence) {
-    if (!dudakRe.hasMatch(sentence) || !ojeWord.hasMatch(sentence)) {
-      return sentence;
-    }
-    if (RegExp(r'tırnak', caseSensitive: false).hasMatch(sentence)) {
-      return sentence.replaceAllMapped(
-        RegExp(r'(dudak[^\n.!?]{0,52}?)\s+[üÜ]zer(?:ine)?(?:\s+[üÜ]?zerine)?(?:\s+[iİ]çin)?\s+[öÖ]?je\b', caseSensitive: false),
-        (m) => '${m[1]} için ruj',
-      );
-    }
-    var t = sentence;
-    t = t.replaceAllMapped(
-      RegExp(r'(dudak[^\n.!?]{0,48}?)(?:(?:için|üzerine|kenarına)\s+)?(?:bir\s+)?oje\b', caseSensitive: false),
-      (m) => '${m[1]} için ruj',
-    );
-    return t.replaceAll(ojeWord, 'ruj');
-  }).join(' ');
-}
-
-OutfitSuggestion _polishSuggestionFields(OutfitSuggestion o, {required bool beautyOn}) {
-  String pol(String x) => _sanitizeGarbledBeautyPhrases(_sanitizeTurkishOnly(x)).trim();
-
-  final desc = pol(o.outfitDescription);
-  final mot = pol(o.motivationMessage);
-  final mk = beautyOn ? pol(o.makeupTips) : '';
-  final sk = beautyOn ? pol(o.skincareTips) : '';
-
-  final mkFixed = beautyOn ? _sanitizeBeautyCopy(_fixDudakPlusOjeInSentence(mk), isMakeup: true) : '';
-  final skFixed = beautyOn ? _sanitizeBeautyCopy(_fixDudakPlusOjeInSentence(sk), isMakeup: false) : '';
-
-  return OutfitSuggestion(
-    styleName: pol(o.styleName),
-    itemIds: o.itemIds,
-    outfitDescription: desc,
-    makeupTips: mkFixed,
-    skincareTips: skFixed,
-    motivationMessage: mot,
-  );
-}
-
-String _sanitizeBeautyCopy(String text, {required bool isMakeup}) {
-  if (text.isEmpty) return text;
-  var s = text;
-  if (!isMakeup) {
-    s = s.replaceAllMapped(
-      RegExp(r'yüz\w*[ıiuü]\w*\s+[üÜ]zer(?:ine)?\s+(?:bir\s+)?oje\b', caseSensitive: false),
-      (_) => 'tırnaklara uygun renk seçin',
-    );
-  }
-  if (isMakeup) {
-    s = s.replaceAllMapped(
-      RegExp(r'(dudak[^\s,.;:!?]{0,36})\s+(?:(?:için|üzerine|kenarına)\s+)?(?:bir\s+)?oje\b', caseSensitive: false),
-      (m) => '${m[1]} için ruj veya tint',
-    );
-  }
-  return s.trim();
-}
-
-String _varietyDirective(int seed) {
-  const directives = [
-    'Birinci kombinde sofistike ve ciddi, ikinci kombinde enerjik ve spor, üçüncü kombinde rahat ve doğal bir stilist dili kullan.',
-    'Her kombinin motivasyon mesajını farklı bir konseptten ver: 1. Özgüven, 2. Güzellik/Aura, 3. Konfor ve Rahatlık.',
-    'Kombin açıklamalarında tekrara düşme. Bir kombinde renk uyumuna, diğerinde kumaşların kontrastına, diğerinde mekana uyuma vurgu yap.',
-    'Makyaj ve cilt bakımı önerilerini tamamen değiştir. Birinde gözleri, diğerinde dudakları, diğerinde cilt parlaklığını öne çıkar.',
-  ];
-  return directives[seed.abs() % directives.length];
-}
-
-String _beautyCoherenceRules() {
-  return '''
-MAKYAJ VE CİLT BAKIMI KURALLARI (YASAKLAR VE ZORUNLULUKLAR):
-1. YASAK: "Doğal makyaj yap", "Cildini temizle ve nemlendir" gibi tembel ve klişe cümleler KESİNLİKLE YASAKTIR.
-2. ZORUNLULUK: Makyaj önerisi kombinin RENKLERİYLE zıtlık veya uyum yakalamalıdır. (Örn: "Siyah kombini patlatmak için bordo mat ruj", "Kırmızı kazağı dengelemek için sadece toprak tonlarında far").
-3. ZORUNLULUK: Cilt bakımı hava durumuna ve etkinliğe özel olmalıdır. (Örn: "Evde kendine vakit ayırdığın bu günde cildini yorma, sadece bariyer onarıcı cica maskeni yap").
-4. KUSURSUZ TÜRKÇE: Araya yabancı dilde veya Rusça/Kiril alfabesinde kelimeler KESİNLİKLE GİREMEZ.
-''';
-}
-
+ 
+// ---------------------------------------------------------------------------
+// Markdown Temizleyici
+// ---------------------------------------------------------------------------
 String _clean(String raw) {
   return raw
       .replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m[1]!)
-      .replaceAllMapped(RegExp(r'\*(.+?)\*'),     (m) => m[1]!)
-      .replaceAll(RegExp(r'#+\s*'),               '')
+      .replaceAllMapped(RegExp(r'\*(.+?)\*'), (m) => m[1]!)
+      .replaceAll(RegExp(r'#+\s*'), '')
       .replaceAll(RegExp(r'^\s*[-•]\s+', multiLine: true), '')
       .replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '')
-      .replaceAll(RegExp(r'\n{3,}'),              '\n\n')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 }
-
+ 
 // ---------------------------------------------------------------------------
-// Kombin önerisi veri modeli
+// Çeşitlilik Direktifi — Her çağrıda farklı bir stil açısı
+// ---------------------------------------------------------------------------
+String _varietyDirective(int seed) {
+  const directives = [
+    'Her kombinde farklı bir stil konsepti kullan: 1.kombinde sofistike/şehirli, 2.kombinde enerjik/dinamik, 3.kombinde rahat/doğal dil.',
+    'Motivasyon mesajlarını üç farklı konseptten ver: 1.özgüven teması, 2.güzellik/aura teması, 3.konfor/rahatlık teması.',
+    'Kombin açıklamalarında tekrardan kaçın: birinde renk uyumuna, diğerinde kumaş kontrastına, diğerinde ortama uyuma odaklan.',
+    'Makyaj önerilerini çeşitlendir: birinde göz vurgusu, diğerinde dudak vurgusu, diğerinde cilt parlaklığı öne çıksın.',
+  ];
+  return directives[seed.abs() % directives.length];
+}
+ 
+// ---------------------------------------------------------------------------
+// Güzellik Kuralları Bloğu
+// ---------------------------------------------------------------------------
+String _beautyRules() => '''
+MAKYAJ & CİLT BAKIMI — KESİN KURALLAR:
+1. YASAK: "Doğal makyaj yap", "Cildini temizle ve nemlendir" gibi GENEL ve KLİŞE cümleler kullanma.
+2. ZORUNLU: Makyaj önerisi kombinin ana rengiyle DOĞRUDAN ilişkili olmalı.
+   Örnek: "Siyah kombinini tamamlamak için bordo mat ruj" veya "Toprak tonlu kombine uygun bronz far".
+3. ZORUNLU: Cilt bakımı hava durumu VE ortama özgü olmalı.
+   Örnek: "Evde geçireceğin bu sakin günde cilt bariyerini güçlendirmek için cica maske uygula."
+4. YASAK: İngilizce (glow, dewy, SPF, primer, cleanser) veya Rusça (поэтому, и, для) kelime sızdırma.
+''';
+ 
+// ---------------------------------------------------------------------------
+// Kombin Önerisi Veri Modeli
 // ---------------------------------------------------------------------------
 class OutfitSuggestion {
   final String styleName;
@@ -161,7 +130,7 @@ class OutfitSuggestion {
   final String makeupTips;
   final String skincareTips;
   final String motivationMessage;
-
+ 
   const OutfitSuggestion({
     required this.styleName,
     required this.itemIds,
@@ -170,7 +139,7 @@ class OutfitSuggestion {
     required this.skincareTips,
     required this.motivationMessage,
   });
-
+ 
   factory OutfitSuggestion.fromJson(Map<String, dynamic> json) {
     final rawIds = List<String>.from(json['itemIds'] as List? ?? []);
     final cleanIds = rawIds
@@ -178,41 +147,84 @@ class OutfitSuggestion {
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toList();
-
+ 
     return OutfitSuggestion(
-      styleName:         _clean(json['styleName']         as String? ?? 'Günlük Şıklık'),
-      itemIds:           cleanIds,
-      outfitDescription: _clean(json['outfitDescription'] as String? ?? ''),
-      makeupTips:        _clean(json['makeupTips']        as String? ?? ''),
-      skincareTips:      _clean(json['skincareTips']      as String? ?? ''),
-      motivationMessage: _clean(json['motivationMessage'] as String? ?? ''),
+      styleName: _clean(json['styleName'] as String? ?? 'Günlük Şıklık'),
+      itemIds: cleanIds,
+      outfitDescription:
+          _clean(json['outfitDescription'] as String? ?? ''),
+      makeupTips: _clean(json['makeupTips'] as String? ?? ''),
+      skincareTips: _clean(json['skincareTips'] as String? ?? ''),
+      motivationMessage:
+          _clean(json['motivationMessage'] as String? ?? ''),
     );
   }
 }
-
+ 
+// ---------------------------------------------------------------------------
+// Chat Mesaj Modeli
+// ---------------------------------------------------------------------------
 class ChatMessage {
   final String role;
   final String content;
   const ChatMessage({required this.role, required this.content});
 }
-
+ 
 // ---------------------------------------------------------------------------
-// AI Servisi — Groq
+// AI Servisi
 // ---------------------------------------------------------------------------
 class AIService {
-  static const String _chatEndpoint = '${ApiConfig.groqBaseUrl}/chat/completions';
-
-  String _buildClothingItemLine(ClothingItem i) {
-    final fit = i.fit != null ? " | Kalıp: ${i.fit}" : "";
-    final fabric = i.fabric != null ? " | Kumaş: ${i.fabric}" : "";
-    final style = i.style != null ? " | Tarz: ${i.style}" : "";
-    final subCategory = i.subCategory != null ? " | Alt Kategori: ${i.subCategory}" : "";
-    return '• ID:${i.id} | Kategori: ${i.category}$subCategory | Renkler: ${i.colors.join(", ")} | Mevsim: ${i.seasons.join(", ")}$fit$fabric$style';
+  // ── Model Seçimi ──
+  // Kombin önerisi & chat → Groq (deepseek-r1-distill-llama-70b)
+  //   → En az halüsinasyon, Türkçe JSON en tutarlı, hız üstün
+  // Kıyafet analizi      → Gemini 2.5 Flash
+  //   → Görsel anlama zorunlu, tek seferlik istek
+ 
+  static const String _groqEndpoint =
+      '${ApiConfig.groqBaseUrl}/chat/completions';
+ 
+  // Kombin önerisi için deepseek, chat için llama kullan
+  static const String _outfitModel = 'deepseek-r1-distill-llama-70b';
+  static const String _chatModel = 'llama-3.3-70b-versatile';
+ 
+  // ---------------------------------------------------------------------------
+  // Kıyafet Satır Oluşturucu
+  // ---------------------------------------------------------------------------
+  String _buildItemLine(ClothingItem i) {
+    final parts = <String>[
+      'ID:${i.id}',
+      'Kategori:${i.category}',
+      if (i.subCategory != null) 'AltKat:${i.subCategory}',
+      'Renkler:${i.colors.join("/")}',
+      'Mevsim:${i.seasons.join("/")}',
+      if (i.fit != null) 'Kalıp:${i.fit}',
+      if (i.fabric != null) 'Kumaş:${i.fabric}',
+      if (i.style != null) 'Tarz:${i.style}',
+      if (i.pattern != null) 'Desen:${i.pattern}',
+    ];
+    return '• ${parts.join(" | ")}';
   }
-
-  // -------------------------------------------------------------------------
-  // KOMBİN ÖNERİSİ — YENİ NESİL SINIRSIZ ÇOKLU KOMBİN PROMPTU
-  // -------------------------------------------------------------------------
+ 
+  // ---------------------------------------------------------------------------
+  // Parçaları sonradan temizle
+  // ---------------------------------------------------------------------------
+  OutfitSuggestion _polish(OutfitSuggestion o, {required bool beautyOn}) {
+    String p(String x) =>
+        _sanitizeTurkishOnly(_clean(x)).trim();
+ 
+    return OutfitSuggestion(
+      styleName: p(o.styleName),
+      itemIds: o.itemIds,
+      outfitDescription: p(o.outfitDescription),
+      makeupTips: beautyOn ? p(o.makeupTips) : '',
+      skincareTips: beautyOn ? p(o.skincareTips) : '',
+      motivationMessage: p(o.motivationMessage),
+    );
+  }
+ 
+  // ---------------------------------------------------------------------------
+  // KOMBİN ÖNERİSİ
+  // ---------------------------------------------------------------------------
   Future<List<OutfitSuggestion>> getOutfitSuggestion({
     required List<ClothingItem> items,
     required WeatherModel weather,
@@ -223,217 +235,155 @@ class AIService {
     bool includeMakeupSkincare = true,
   }) async {
     _checkApiKey();
-
-    final varietySeed = DateTime.now().millisecondsSinceEpoch ^ items.length * 17;
+ 
+    final seed = DateTime.now().millisecondsSinceEpoch ^ items.length * 31;
     final validIds = items.map((i) => i.id).toSet();
-
+ 
     final clothingList = items.isEmpty
         ? 'Gardırop boş.'
-        : items.map((i) => _buildClothingItemLine(i)).join('\n');
-
+        : items.map(_buildItemLine).join('\n');
+ 
     final validIdList = items.map((i) => i.id).join(', ');
-
-    final zodiacLine = (zodiacSign != null && zodiacSign.isNotEmpty)
-        ? 'Kullanıcının burcu: $zodiacSign. Stil yorumlarında ve motivasyon mesajında bu burcun karakteristik kodlarına profesyonel bir astrolog gibi değin.'
-        : '';
-
-    final systemPrompt =
-        'Sen dünyanın en iyi kişisel moda stilisti ve güzellik uzmanısın. '
-        'Görevin, kullanıcının gardırobundaki parçaları kullanarak ona MÜKEMMEL KOMBİNLER sunmaktır. $zodiacLine\n'
-        'ÇOK ÖNEMLİ KURAL: SADECE VE SADECE kusursuz TÜRKÇE konuşacaksın. Yanıtının hiçbir yerinde İngilizce, Rusça, Fransızca veya başka bir dilde tek bir kelime bile bulunmamalıdır.\n'
-        'Yanıtını HER ZAMAN geçerli bir JSON nesnesi olarak ver.';
-
-    final customPromptBlock = (customPrompt != null && customPrompt.trim().isNotEmpty)
+ 
+    // Ev/Sakin bağlam koruyucu
+    final bool isRelaxedContext =
+        occasion == 'Ev' || mood == 'Sakin' || mood == 'sakin';
+ 
+    final contextGuard = isRelaxedContext
         ? '''
-KULLANICI ÖZEL İSTEĞİ: "${customPrompt.trim()}"
-DİKKAT: Kullanıcı kırmızı istiyorsa kırmızı bir parça seç AMA kombini siyah, beyaz, kot gibi nötr renklerle tamamlayıp DENGELE. Sadece kırmızı kazak verip bırakma!
+BAĞLAM UYARISI — EV / SAKİN MOD:
+• Mini etek, abiye, gece elbisesi, topuklu ayakkabı KESİNLİKLE önerme.
+• Sadece ev içine uygun rahat, yumuşak veya casual parçalar seç.
+• "Gece çıkışı", "ofis" veya "parti" tarzı kombinlere gitme.
 '''
         : '';
-
-    final beautyRestriction = includeMakeupSkincare
-        ? ''
-        : 'ÖNEMLİ: Kullanıcı makyaj/cilt bakımı İSTEMİYOR. "makeupTips" ve "skincareTips" değerlerini kesinlikle boş string ("") olarak bırak.';
-
-    final beautyJsonHints = includeMakeupSkincare
+ 
+    final zodiacBlock = (zodiacSign != null && zodiacSign.isNotEmpty)
         ? '''
-      "makeupTips": "Kombin renkleriyle eşleşen spesifik bir makyaj tüyosu (Sadece Türkçe)",
-      "skincareTips": "Havaya/mekana uygun 1 adet nokta atışı cilt bakım rutini (Sadece Türkçe)",'''
+BURÇ ENTEGRASYONu — $zodiacSign:
+Profesyonel bir stilist-astrolog gibi $zodiacSign burcunun karakteristik renk
+kodlarını, enerji tonunu ve tarz özelliklerini kombinlere ve motivasyon
+mesajlarına yansıt. Klişe burç yorumu değil; gerçek stil önerisi yap.
+'''
+        : '';
+ 
+    final customBlock =
+        (customPrompt != null && customPrompt.trim().isNotEmpty)
+            ? '''
+KULLANICI ÖZEL İSTEĞİ: "${customPrompt.trim()}"
+→ Bu isteği göz önünde bulundur; ancak kombinlerin tamamını bu kısıtlamayla sınırlama.
+  Örn: "kırmızı istiyorum" → en az bir kombinde kırmızı parça kullan,
+  ama diğer kombinlerde gardırobun tüm olanaklarını kullan.
+'''
+            : '';
+ 
+    final beautyJsonBlock = includeMakeupSkincare
+        ? '''
+      "makeupTips": "Kombinin ana rengiyle ilişkili spesifik makyaj önerisi (SADECE TÜRKÇE)",
+      "skincareTips": "Hava/ortama özgü 1 cilt bakım rutini (SADECE TÜRKÇE)",'''
         : '''
       "makeupTips": "",
       "skincareTips": "",''';
-
-    final userPrompt = '''
-GARDIROP (SADECE BUNLARI KULLANABİLİRSİN):
-$clothingList
-
-GEÇERLİ ID LİSTESİ: $validIdList
-
-$customPromptBlock
-BUGÜNÜN KOŞULLARI:
-Hava: ${weather.conditionForPrompt}
-Ruh hali: $mood
-Etkinlik: $occasion
-
-STİLİST KURALLARI (HAYATİ ÖNEM TAŞIR):
-1. SINIRSIZ ÇOKLU KOMBİN: Gardıroptaki kıyafetlerle EN AZ 3, MÜMKÜNSE YAPABİLDİĞİN KADAR ÇOK FARKLI KOMBİN ALTERNATİFİ ÜRET. Hiçbir üst sınır yok! Tüm mantıklı ve uyumlu eşleşmeleri kullanıcıya sun. Asla 1 veya 2 kombinle yetinme!
-2. EKSİKSİZ KOMBİN (KURAL): Bir kombin asla yarım olamaz. Üst giyim seçtiysen KESİNLİKLE bir Alt Giyim (Pantolon/Etek) seçeceksin. Her kombinde Ayakkabı olmak zorundadır. Elbise seçtiysen alt giyime gerek yoktur.
-3. BAĞLAM UYUMU: Etkinlik "Ev" veya ruh hali "Sakin" ise mini etek, abiye, topuklu önerme. Ev ortamına uygun rahat şeyler seç.
-4. ÇEŞİTLİLİK: Her kombinin ruhu, parçaları ve senin yazdığın açıklamalar BİRBİRİNDEN FARKLI olsun. Aynı parçaları sürekli döndürüp durma.
-5. DİL: Sadece TÜRKÇE kullan. Rusça (поэтому, для vb.) veya İngilizce kelimeler sızdırma.
-${_varietyDirective(varietySeed)}
-${includeMakeupSkincare ? _beautyCoherenceRules() : ''}
-$beautyRestriction
-
-JSON FORMATI (Sadece bu yapıyı döndür. Dikkat et, "outfits" listesi içinde MÜMKÜN OLDUĞUNCA ÇOK obje olmalı, en az 3):
-{
-  "outfits": [
-    {
-      "styleName": "1. Kombinin Çarpıcı İsmi",
-      "itemIds": ["sadece geçerli ID'ler"],
-      "outfitDescription": "Neden bu parçaları eşleştirdiğini anlatan stilist yorumu.",$beautyJsonHints
-      "motivationMessage": "Güne başlarken onu harika hissettirecek motivasyon sözü."
-    },
-    {
-      "styleName": "2. Kombinin Farklı İsmi",
-      "itemIds": ["sadece geçerli ID'ler"],
-      "outfitDescription": "Bu alternatifin neden farklı ve güzel olduğunu anlatan yorum.",$beautyJsonHints
-      "motivationMessage": "Bu kombine özel bambaşka bir motivasyon sözü."
-    },
-    {
-      "styleName": "3. Kombinin İsmi",
-      "itemIds": ["sadece geçerli ID'ler"],
-      "outfitDescription": "Üçüncü alternatif için şık bir açıklama.",$beautyJsonHints
-      "motivationMessage": "Son bir harika motivasyon cümlesi."
-    }
-  ]
-}''';
-
-    final raw = await _callGroq(
-      messages: [
-        {'role': 'system', 'content': systemPrompt},
-        {'role': 'user',   'content': userPrompt},
-      ],
-      maxTokens: 4096,
-      temperature: 0.85, // Biraz daha yaratıcılık ve çeşitlilik için sıcaklık artırıldı
-    );
-
-    final jsonStr = _extractJson(raw);
-    try {
-      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-      final list = data['outfits'] as List? ?? [];
-      if (list.isEmpty) throw 'Boş liste';
-
-      final outfits = list
-          .map((o) => OutfitSuggestion.fromJson(o as Map<String, dynamic>))
-          .map((o) => OutfitSuggestion(
-                styleName: o.styleName,
-                itemIds: o.itemIds.where(validIds.contains).toList(),
-                outfitDescription: o.outfitDescription,
-                makeupTips: includeMakeupSkincare ? o.makeupTips : '',
-                skincareTips: includeMakeupSkincare ? o.skincareTips : '',
-                motivationMessage: o.motivationMessage,
-              ))
-          .map((o) => _polishSuggestionFields(o, beautyOn: includeMakeupSkincare))
-          .where((o) => o.itemIds.isNotEmpty)
-          .toList();
-
-      if (outfits.isEmpty) throw 'Geçerli kombin bulunamadı';
-      return outfits;
-    } catch (_) {
-      throw 'AI yanıtı işlenemedi. Lütfen tekrar dene.';
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // KÖR NOKTA ANALİZİ
-  // -------------------------------------------------------------------------
-  Future<List<OutfitSuggestion>> getBlindSpotSuggestion({
-    required List<ClothingItem> forgottenItems,
-    required List<ClothingItem> allItems,
-    String? zodiacSign,
-  }) async {
-    _checkApiKey();
-
-    final varietySeed = DateTime.now().millisecondsSinceEpoch ^ forgottenItems.length * 31;
-    final validIds = allItems.map((i) => i.id).toSet();
-
-    final forgottenList = forgottenItems.map((i) {
-      final days = DateTime.now().difference(i.lastWornAt ?? i.createdAt).inDays;
-      return '${_buildClothingItemLine(i)} | $days gündür giyilmedi';
-    }).join('\n');
-
-    final allList = allItems.map((i) => _buildClothingItemLine(i)).join('\n');
-    final validIdList = allItems.map((i) => i.id).join(', ');
-
-    final zodiacLine = (zodiacSign != null && zodiacSign.isNotEmpty)
-        ? ' Kullanıcı burcu: $zodiacSign. Tarz yorumlarında burç özelliklerini hesaba kat.'
-        : '';
-
+ 
     final systemPrompt =
-        'Sen STILYA uygulamasının yapay zeka stil asistanısın. '
-        'Görevin kullanıcının uzun süredir giymediği kıyafetleri yeniden keşfettirmek.$zodiacLine '
-        'SADECE VE SADECE TÜRKÇE KONUŞ. Yabancı kelimeler sızdırma. '
-        'Yanıtını HER ZAMAN geçerli bir JSON nesnesi olarak ver.';
-
-    final varietyBlock = '''
-ÇEŞİTLENDİRME:
-${_varietyDirective(varietySeed)}
-${_beautyCoherenceRules()}
-''';
-
+        'Sen dünyanın en iyi kişisel moda stilistrsin. '
+        'Görevin kullanıcının gardırobundaki GERÇEK parçalarla '
+        'MÜMKÜN OLDUĞUNCA ÇOK FARKLI ve EKSİKSİZ kombin önermektir. '
+        'SADECE VE SADECE kusursuz TÜRKÇE kullanacaksın. '
+        'İngilizce, Rusça veya başka dilde TEK BİR KELIME bile sızdırma. '
+        'Yanıtın HER ZAMAN geçerli bir JSON nesnesi olsun — başka hiçbir şey ekleme.';
+ 
     final userPrompt = '''
-$varietyBlock
-UZUN SÜREDİR GİYİLMEYEN KIYAFETLER (Her kombinde en az biri kullanılmalı):
-$forgottenList
-
-TÜM GARDİROP (Kombinleri tamamlamak için kullanabilirsin):
-$allList
-
+$zodiacBlock
+$contextGuard
+$customBlock
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+GARDIROP (SADECE BUNLARI KULLANABİLİRSİN)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+$clothingList
+ 
 GEÇERLİ ID LİSTESİ: $validIdList
-
-KESİN KURALLAR:
-1. SINIRSIZ ÇOKLU KOMBİN: Lütfen EN AZ 3, MÜMKÜNSE YAPABİLDİĞİN KADAR ÇOK FARKLI KOMBİN alternatifi üret. Sınır yok! "outfits" dizisine üretebildiğin kadar çok obje ekle.
-2. EKSİKSİZ KOMBİN: Üst giyim varsa alt giyim olmalı. Kombinler eksik olamaz.
-3. Her kombinde en az bir "uzun süredir giyilmeyen" parça KESİNLİKLE OLMALI.
-4. SADECE TÜRKÇE DİLİNİ KULLAN.
-
-JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca çok obje olsun, en az 3):
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUGÜNÜN KOŞULLARI
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hava: ${weather.conditionForPrompt}
+Ruh Hali: $mood
+Etkinlik: $occasion
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+STİLİST KURALLARI — HER BİRİ KRİTİK
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 
+KURAL 1 — SINIRSIZ KOMBİN (EN KRİTİK):
+Gardıroptaki parçalarla MÜMKÜN OLDUĞUNCA ÇOK kombin üret.
+Minimum 3, ideal olarak çok daha fazla. "outfits" dizisine ne kadar
+çok mantıklı kombin sığdırabilirsen o kadar ekle.
+ASLA 1-2 kombinle yetinme. Limit yok.
+ 
+KURAL 2 — EKSİKSİZ KOMBİN (KESİN):
+• Üst Giyim seçtiysen → Alt Giyim (Pantolon/Etek/Şort) ZORUNLU.
+• Her kombinde → Ayakkabı ZORUNLU.
+• Elbise/Tulum seçtiysen → Alt Giyim gerekmez.
+• Eksik kombin geçersizdir, öneri listesine dahil etme.
+ 
+KURAL 3 — ÇEŞİTLİLİK:
+Her kombinin parçaları, açıklaması, makyajı ve motivasyonu BİRBİRİNDEN FARKLI olsun.
+Aynı parçaları tekrar tekrar döndürme.
+${_varietyDirective(seed)}
+ 
+KURAL 4 — SIFIR HALÜSİNASYON:
+• SADECE geçerli ID listesindeki parçaları kullan.
+• Listede olmayan hiçbir kıyafeti "var gibi" ekleme.
+• itemIds içine SADECE yukarıdaki geçerli ID'leri yaz.
+ 
+KURAL 5 — SIFIR YABANCI DİL:
+Türkçe olmayan tek bir kelime bile yazarsan yanıt geçersiz sayılır.
+${includeMakeupSkincare ? _beautyRules() : ''}
+${includeMakeupSkincare ? '' : 'NOT: Kullanıcı makyaj/cilt bakımı istemiyor. makeupTips ve skincareTips BOŞ ("") olsun.'}
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+JSON FORMATI (SADECE BU YAPI — BAŞKA HİÇBİR ŞEY EKLEME)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 {
   "outfits": [
     {
-      "styleName": "1. Kombin",
-      "itemIds": ["sadece geçerli ID'ler"],
-      "outfitDescription": "Neden bu parçayı yeniden keşfetmen gerektiğini anlatan stil notu",
-      "makeupTips": "Kombinle uyumlu makyaj önerisi",
-      "skincareTips": "Cilt bakım tavsiyesi",
-      "motivationMessage": "Gardırobundaki bu gizli hazineyi keşfetmen için mesaj"
+      "styleName": "Kombinin Çarpıcı Türkçe İsmi",
+      "itemIds": ["sadece_gecerli_id_1", "sadece_gecerli_id_2", "..."],
+      "outfitDescription": "Bu kombinIn neden harika olduğunu anlatan stilist yorumu.",
+$beautyJsonBlock
+      "motivationMessage": "Bu kombine özel, özgün bir motivasyon cümlesi."
     },
     {
-      "styleName": "2. Kombin",
+      "styleName": "İkinci Kombinin Farklı İsmi",
       "itemIds": ["..."],
       "outfitDescription": "...",
-      "makeupTips": "...",
-      "skincareTips": "...",
+$beautyJsonBlock
       "motivationMessage": "..."
     }
   ]
-}''';
-
+}
+ 
+HATIRLATMA: "outfits" dizisine mümkün olduğunca çok kombin ekle (en az 3).
+Her kombin eksiksiz (üst+alt+ayakkabı veya elbise+ayakkabı) olmalı.''';
+ 
     final raw = await _callGroq(
+      model: _outfitModel,
       messages: [
         {'role': 'system', 'content': systemPrompt},
         {'role': 'user', 'content': userPrompt},
       ],
-      maxTokens: 4096,
-      temperature: 0.85,
+      maxTokens: 6000,
+      temperature: 0.75,
     );
-
+ 
     final jsonStr = _extractJson(raw);
     try {
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       final list = data['outfits'] as List? ?? [];
       if (list.isEmpty) throw 'Boş liste';
-
+ 
       final outfits = list
           .map((o) => OutfitSuggestion.fromJson(o as Map<String, dynamic>))
           .map((o) => OutfitSuggestion(
@@ -444,96 +394,234 @@ JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca
                 skincareTips: o.skincareTips,
                 motivationMessage: o.motivationMessage,
               ))
-          .map((o) => _polishSuggestionFields(o, beautyOn: true))
+          .map((o) => _polish(o, beautyOn: includeMakeupSkincare))
           .where((o) => o.itemIds.isNotEmpty)
           .toList();
-
+ 
       if (outfits.isEmpty) throw 'Geçerli kombin bulunamadı';
       return outfits;
     } catch (_) {
       throw 'AI yanıtı işlenemedi. Lütfen tekrar dene.';
     }
   }
-
-  // -------------------------------------------------------------------------
-  // CHAT
-  // -------------------------------------------------------------------------
+ 
+  // ---------------------------------------------------------------------------
+  // KÖR NOKTA ANALİZİ
+  // ---------------------------------------------------------------------------
+  Future<List<OutfitSuggestion>> getBlindSpotSuggestion({
+    required List<ClothingItem> forgottenItems,
+    required List<ClothingItem> allItems,
+    String? zodiacSign,
+  }) async {
+    _checkApiKey();
+ 
+    final seed =
+        DateTime.now().millisecondsSinceEpoch ^ forgottenItems.length * 53;
+    final validIds = allItems.map((i) => i.id).toSet();
+ 
+    final forgottenList = forgottenItems.map((i) {
+      final days =
+          DateTime.now().difference(i.lastWornAt ?? i.createdAt).inDays;
+      return '${_buildItemLine(i)} | $days gündür giyilmedi';
+    }).join('\n');
+ 
+    final allList = allItems.map(_buildItemLine).join('\n');
+    final validIdList = allItems.map((i) => i.id).join(', ');
+ 
+    final zodiacBlock = (zodiacSign != null && zodiacSign.isNotEmpty)
+        ? 'Kullanıcı burcu: $zodiacSign. Bu burcun stil enerjisini yeniden keşif yorumuna yansıt.\n'
+        : '';
+ 
+    final systemPrompt =
+        'Sen STILYA uygulamasının yapay zeka stil asistanısın. '
+        'Görevin uzun süredir giyilmeyen kıyafetleri yeniden keşfettirmek. '
+        '$zodiacBlock'
+        'SADECE kusursuz TÜRKÇE kullan. Yabancı kelime sızdırma. '
+        'Yanıtın HER ZAMAN geçerli JSON olsun.';
+ 
+    final userPrompt = '''
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+UZUN SÜREDİR GİYİLMEYEN PARÇALAR
+(Her kombinde en az biri ZORUNLU)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+$forgottenList
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+TÜM GARDİROP (Kombinleri tamamlamak için)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+$allList
+ 
+GEÇERLİ ID LİSTESİ: $validIdList
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+KESİN KURALLAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 
+KURAL 1 — SINIRSIZ KOMBİN:
+Mümkün olduğunca çok kombin üret. Minimum 3, ideal çok daha fazla.
+ 
+KURAL 2 — EKSİKSİZ KOMBİN:
+• Üst Giyim → Alt Giyim (Pantolon/Etek) ZORUNLU.
+• Her kombinde Ayakkabı ZORUNLU.
+• Elbise/Tulum → Alt Giyim gerekmez.
+ 
+KURAL 3 — UNUTULAN PARÇA:
+Her kombinde yukarıdaki "uzun süredir giyilmeyen" listesinden
+en az 1 parça KESİNLİKLE kullanılmalı.
+ 
+KURAL 4 — ÇEŞİTLİLİK:
+${_varietyDirective(seed)}
+${_beautyRules()}
+ 
+KURAL 5 — SADECE TÜRKÇE:
+Tek bir yabancı kelime bile yasak.
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+JSON FORMATI
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+{
+  "outfits": [
+    {
+      "styleName": "Yeniden Keşif Kombini İsmi",
+      "itemIds": ["sadece_gecerli_id"],
+      "outfitDescription": "Bu unutulan parçanın neden yeniden değerli olduğunu anlat.",
+      "makeupTips": "Kombinin rengiyle ilişkili makyaj önerisi",
+      "skincareTips": "Ortama uygun cilt bakım tavsiyesi",
+      "motivationMessage": "Bu parçayı yeniden keşfetmek için özgün mesaj"
+    }
+  ]
+}
+ 
+"outfits" dizisine mümkün olduğunca çok kombin ekle (en az 3).''';
+ 
+    final raw = await _callGroq(
+      model: _outfitModel,
+      messages: [
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': userPrompt},
+      ],
+      maxTokens: 6000,
+      temperature: 0.75,
+    );
+ 
+    final jsonStr = _extractJson(raw);
+    try {
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final list = data['outfits'] as List? ?? [];
+      if (list.isEmpty) throw 'Boş liste';
+ 
+      final outfits = list
+          .map((o) => OutfitSuggestion.fromJson(o as Map<String, dynamic>))
+          .map((o) => OutfitSuggestion(
+                styleName: o.styleName,
+                itemIds: o.itemIds.where(validIds.contains).toList(),
+                outfitDescription: o.outfitDescription,
+                makeupTips: o.makeupTips,
+                skincareTips: o.skincareTips,
+                motivationMessage: o.motivationMessage,
+              ))
+          .map((o) => _polish(o, beautyOn: true))
+          .where((o) => o.itemIds.isNotEmpty)
+          .toList();
+ 
+      if (outfits.isEmpty) throw 'Geçerli kombin bulunamadı';
+      return outfits;
+    } catch (_) {
+      throw 'AI yanıtı işlenemedi. Lütfen tekrar dene.';
+    }
+  }
+ 
+  // ---------------------------------------------------------------------------
+  // CHAT — Stil Asistanı
+  // ---------------------------------------------------------------------------
   Future<String> chat({
     required List<ChatMessage> history,
     List<ClothingItem> clothingItems = const [],
     String? zodiacSign,
   }) async {
     _checkApiKey();
-
+ 
     final wardrobeSummary = clothingItems.isEmpty
         ? 'Gardırop henüz boş.'
-        : clothingItems.map((i) => '${i.category} (${i.colors.join(", ")})').join(', ');
-
+        : clothingItems
+            .map((i) => '${i.category}(${i.colors.join("/")})')
+            .join(', ');
+ 
     final zodiacExtra = (zodiacSign != null && zodiacSign.isNotEmpty)
-        ? ' Güneş burcu: $zodiacSign — önerilerinde renk ve enerji tonunu bu burca göre kişiselleştir. '
+        ? ' Kullanıcının güneş burcu $zodiacSign — '
+          'renk ve enerji önerilerini bu burcun karakterine göre kişiselleştir.'
         : '';
-
+ 
     final systemPrompt =
         'Sen STILYA uygulamasının kişisel moda ve stil editörüsün. '
         'Kullanıcıyla samimi, destekleyici ve ilham verici bir üslupla '
-        'YALNIZCA akıcı ve doğal TÜRKÇE konuş; İngilizce, Rusça veya '
-        'gereksiz yabancı harman kesinlikle kullanma. Moda kuralları, renk uyumları ve '
-        'güzellik konularında uzmansın.$zodiacExtra Kullanıcının gardırobu: $wardrobeSummary';
-
+        'YALNIZCA akıcı ve doğal TÜRKÇE konuş. '
+        'İngilizce, Rusça veya başka dilde tek bir kelime bile kullanma.$zodiacExtra '
+        'Moda, renk uyumu ve güzellik konularında uzmansın. '
+        'Kullanıcının gardırobu: $wardrobeSummary';
+ 
     final messages = <Map<String, String>>[
       {'role': 'system', 'content': systemPrompt},
       ...history.map((m) => {
-            'role':    m.role == 'model' ? 'assistant' : m.role,
+            'role': m.role == 'model' ? 'assistant' : m.role,
             'content': m.content,
           }),
     ];
-
-    final raw = await _callGroq(messages: messages, temperature: 0.72);
-    return _sanitizeGarbledBeautyPhrases(
-      _fixDudakPlusOjeInSentence(
-        _sanitizeTurkishOnly(raw),
-      ),
+ 
+    final raw = await _callGroq(
+      model: _chatModel,
+      messages: messages,
+      maxTokens: 1024,
+      temperature: 0.70,
     );
+ 
+    return _sanitizeTurkishOnly(raw);
   }
-
-  Future<Map<String, dynamic>?> analyzeClothingImage(File imageFile, {int retryCount = 0}) async {
-    if (ApiConfig.geminiApiKey == 'BURAYA_GEMINI_API_KEY_GELECEK' || ApiConfig.geminiApiKey.isEmpty) {
+ 
+  // ---------------------------------------------------------------------------
+  // KIYAFEt GÖRSEL ANALİZİ — Gemini 2.5 Flash
+  // ---------------------------------------------------------------------------
+  Future<Map<String, dynamic>?> analyzeClothingImage(
+    File imageFile, {
+    int retryCount = 0,
+  }) async {
+    if (ApiConfig.geminiApiKey.isEmpty ||
+        ApiConfig.geminiApiKey == 'BURAYA_GEMINI_API_KEY_GELECEK') {
       throw 'Lütfen api_config.dart dosyasına Gemini API anahtarınızı ekleyin!';
     }
-
+ 
     try {
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
-
-      final systemPrompt =
-          'Sen usta bir stilist ve moda asistanısın. Görevin, sana gönderilen kıyafet '
-          'fotoğrafını analiz edip şu özelliklerini belirlemektir: Kategori (SADECE ŞUNLARDAN BİRİ: "Üst Giyim", "Alt Giyim", "Dış Giyim", "Elbise / Tulum", "Aksesuar", "Ayakkabı", "Çanta", "Diğer"), '
-          'Alt Kategori / Tür (Çok net ol: "Etek", "Pantolon", "Şort", "Tişört", "Kazak", "Gömlek", "Ceket", "Elbise" vb.), '
-          'Renkler (en fazla 2 ana renk), '
-          'Mevsimler (kıyafetin uygun olduğu mevsimler), Kalıp/Kesim (Fit: dar, oversize, bol, v-yaka vs.), '
-          'Kumaş (Pamuk, ipek, kot, deri, sentetik vs.), Desen (Düz renk, çizgili, çiçekli, kareli vs.), '
-          'Tarz/Stil (Spor, şık, günlük/casual, vintage, gece vs.).\\n'
-          'SADECE JSON formatında yanıt ver. Örnek Format:\\n'
-          '{\\n'
-          '  "category": "Alt Giyim",\\n'
-          '  "subCategory": "Kot Etek",\\n'
-          '  "colors": ["Beyaz", "Mavi"],\\n'
-          '  "seasons": ["Yaz", "İlkbahar"],\\n'
-          '  "fit": "Yırtmaçlı",\\n'
-          '  "fabric": "Kot",\\n'
-          '  "pattern": "Düz Renk",\\n'
-          '  "style": "Günlük (Casual)"\\n'
-          '}';
-
+ 
+      const systemPrompt =
+          'Sen usta bir stilist ve moda asistanısın. '
+          'Sana gönderilen kıyafet fotoğrafını analiz edip şu özellikleri belirle: '
+          'Kategori (SADECE: "Üst Giyim", "Alt Giyim", "Dış Giyim", '
+          '"Elbise / Tulum", "Aksesuar", "Ayakkabı", "Çanta", "Diğer"), '
+          'Alt Kategori/Tür (Etek, Pantolon, Şort, Tişört, Kazak, Gömlek, Ceket, Elbise vb.), '
+          'Renkler (en fazla 2 ana renk, Türkçe), '
+          'Mevsimler (uygun mevsimler, Türkçe), '
+          'Kalıp/Kesim (dar, oversize, bol, v-yaka vb.), '
+          'Kumaş (Pamuk, ipek, kot, deri, sentetik vb.), '
+          'Desen (Düz renk, çizgili, çiçekli, kareli vb.), '
+          'Tarz/Stil (Spor, şık, günlük, vintage, gece vb.). '
+          'SADECE JSON formatında yanıt ver. Başka hiçbir şey ekleme.';
+ 
       final requestBody = {
         'contents': [
           {
             'parts': [
-              {'text': '$systemPrompt\\n\\nBu kıyafeti analiz et ve SADECE JSON olarak döndür.'},
+              {
+                'text':
+                    '$systemPrompt\n\nBu kıyafeti analiz et ve SADECE JSON döndür:\n'
+                    '{"category":"...","subCategory":"...","colors":["..."],'
+                    '"seasons":["..."],"fit":"...","fabric":"...","pattern":"...","style":"..."}'
+              },
               {
                 'inline_data': {
                   'mime_type': 'image/jpeg',
-                  'data': base64Image
+                  'data': base64Image,
                 }
               }
             ]
@@ -544,23 +632,27 @@ JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca
           'responseMimeType': 'application/json',
         }
       };
-
-      final url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${ApiConfig.geminiApiKey}';
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 45));
-
+ 
+      final url =
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+          '?key=${ApiConfig.geminiApiKey}';
+ 
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(requestBody),
+          )
+          .timeout(const Duration(seconds: 45));
+ 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final candidates = data['candidates'] as List<dynamic>?;
         if (candidates == null || candidates.isEmpty) {
           throw 'Gemini boş yanıt döndürdü.';
         }
-        
-        final content = candidates[0]['content']['parts'][0]['text'] as String;
+        final content =
+            candidates[0]['content']['parts'][0]['text'] as String;
         final jsonStr = _extractJson(content);
         return jsonDecode(jsonStr) as Map<String, dynamic>;
       } else if (response.statusCode == 503 && retryCount < 2) {
@@ -571,32 +663,36 @@ JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca
       }
     } catch (e) {
       debugPrint('Gemini API Error: $e');
-      throw e.toString();
+      rethrow;
     }
   }
-
+ 
+  // ---------------------------------------------------------------------------
+  // GROQ API Çağrısı
+  // ---------------------------------------------------------------------------
   Future<String> _callGroq({
+    required String model,
     required List<Map<String, String>> messages,
     int retryCount = 0,
-    int maxTokens = 4096, // Çoklu kombinler uzun olacağı için token limitini yüksek tuttuk
-    double temperature = 0.85,
+    int maxTokens = 4096,
+    double temperature = 0.75,
   }) async {
     final response = await http
         .post(
-          Uri.parse(_chatEndpoint),
+          Uri.parse(_groqEndpoint),
           headers: {
-            'Content-Type':  'application/json',
+            'Content-Type': 'application/json',
             'Authorization': 'Bearer ${ApiConfig.groqApiKey}',
           },
           body: jsonEncode({
-            'model':       ApiConfig.groqModel,
-            'messages':    messages,
+            'model': model,
+            'messages': messages,
             'temperature': temperature,
-            'max_tokens':  maxTokens,
+            'max_tokens': maxTokens,
           }),
         )
-        .timeout(const Duration(seconds: 45));
-
+        .timeout(const Duration(seconds: 60));
+ 
     switch (response.statusCode) {
       case 200:
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -606,9 +702,10 @@ JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca
       case 401:
         throw 'Groq API anahtarı geçersiz. api_config.dart dosyasını kontrol et.';
       case 429:
-        if (retryCount < 1) {
-          await Future.delayed(const Duration(seconds: 5));
+        if (retryCount < 2) {
+          await Future.delayed(Duration(seconds: 5 + retryCount * 3));
           return _callGroq(
+            model: model,
             messages: messages,
             retryCount: retryCount + 1,
             maxTokens: maxTokens,
@@ -620,25 +717,36 @@ JSON FORMATI (Sadece bu yapıyı döndür. "outfits" içinde mümkün olduğunca
         throw 'AI servisi hatası (${response.statusCode}): ${response.body}';
     }
   }
-  /// Groq bazen JSON'u ```json … ``` bloğuna sarar — temizle.
+ 
+  // ---------------------------------------------------------------------------
+  // JSON Çıkarıcı — Markdown bloklarını temizle
+  // ---------------------------------------------------------------------------
   String _extractJson(String text) {
+    // <think>...</think> bloklarını temizle (deepseek modeli için)
+    var clean = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
+ 
+    // ```json ... ``` bloklarını temizle
     final mdBlock = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
-    final match = mdBlock.firstMatch(text);
+    final match = mdBlock.firstMatch(clean);
     if (match != null) return match.group(1)!.trim();
-
-    final start = text.indexOf('{');
-    final end   = text.lastIndexOf('}');
+ 
+    // Direkt JSON bul
+    final start = clean.indexOf('{');
+    final end = clean.lastIndexOf('}');
     if (start != -1 && end != -1 && end > start) {
-      return text.substring(start, end + 1);
+      return clean.substring(start, end + 1);
     }
-    return text.trim();
+    return clean;
   }
-
+ 
+  // ---------------------------------------------------------------------------
+  // API Key Kontrolü
+  // ---------------------------------------------------------------------------
   void _checkApiKey() {
     if (ApiConfig.groqApiKey.isEmpty) {
       throw 'Groq API anahtarı eksik.\n'
-          'Uygulamayı run_config.bat (Windows) veya run_config.sh (Mac/Linux) ile başlat,\n'
-          'ya da VS Code launch.json içindeki GROQ_API_KEY değerini kontrol et.';
+          'Uygulamayı run_config.bat (Windows) veya run_config.sh (Mac/Linux) ile başlat.';
     }
   }
 }
+ 
