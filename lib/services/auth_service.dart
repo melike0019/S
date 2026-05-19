@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
+import '../utils/zodiac_utils.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -20,6 +21,7 @@ class AuthService {
     required String email,
     required String password,
     required String displayName,
+    required DateTime birthDate,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -33,6 +35,8 @@ class AuthService {
       // Firebase Auth display name güncelle
       await user.updateDisplayName(displayName);
 
+      final zodiac = westernZodiacTurkish(birthDate);
+
       // Firestore'a kullanıcı dokümanı oluştur
       final userModel = UserModel(
         id: user.uid,
@@ -41,6 +45,8 @@ class AuthService {
         xpPoints: 0,
         badges: [],
         createdAt: DateTime.now(),
+        birthDate: birthDate,
+        zodiacSign: zodiac,
       );
 
       await _firestore

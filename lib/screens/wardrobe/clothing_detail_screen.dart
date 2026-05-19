@@ -25,6 +25,11 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
   late List<String> _seasons;
   late String? _brand;
   late String? _notes;
+  late String? _fit;
+  late String? _fabric;
+  late String? _pattern;
+  late String? _style;
+  late String? _subCategory;
 
   static const _categories = [
     'Üst Giyim', 'Alt Giyim', 'Elbise / Tulum', 'Dış Giyim',
@@ -44,7 +49,6 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
     'Mavi': Colors.blue,
     'Yeşil': Colors.green,
     'Kırmızı': Colors.red,
-    'Pemke': Colors.pink,
     'Pembe': Colors.pink,
     'Mor': Colors.purple,
     'Sarı': Colors.amber,
@@ -65,6 +69,11 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
     _seasons = List.from(widget.item.seasons);
     _brand = widget.item.brand;
     _notes = widget.item.notes;
+    _fit = widget.item.fit;
+    _fabric = widget.item.fabric;
+    _pattern = widget.item.pattern;
+    _style = widget.item.style;
+    _subCategory = widget.item.subCategory;
   }
 
   Future<void> _save() async {
@@ -79,6 +88,11 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
           seasons: _seasons,
           brand: _brand?.isEmpty ?? true ? null : _brand,
           notes: _notes?.isEmpty ?? true ? null : _notes,
+          fit: _fit?.isEmpty ?? true ? null : _fit,
+          fabric: _fabric?.isEmpty ?? true ? null : _fabric,
+          pattern: _pattern?.isEmpty ?? true ? null : _pattern,
+          style: _style?.isEmpty ?? true ? null : _style,
+          subCategory: _subCategory?.isEmpty ?? true ? null : _subCategory,
         );
     if (mounted) setState(() { _saving = false; _editing = false; });
   }
@@ -118,75 +132,217 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(
-          _editing ? 'Kıyafeti Düzenle' : 'Kıyafet Detayı',
-          style: GoogleFonts.playfairDisplay(
-              fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textDark),
-        ),
-        actions: [
-          if (!_editing)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              color: AppTheme.primaryRose,
-              tooltip: 'Düzenle',
-              onPressed: () => setState(() => _editing = true),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 110,
+            floating: false,
+            pinned: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: AppTheme.softShadow,
+                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded,
+                    size: 18, color: AppTheme.textDark),
+              ),
             ),
-          if (!_editing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              color: const Color(0xFFE53935),
-              tooltip: 'Sil',
-              onPressed: _delete,
+            actions: [
+              if (!_editing) ...[
+                GestureDetector(
+                  onTap: () => setState(() => _editing = true),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 4, top: 8, bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                      boxShadow: AppTheme.softShadow,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.edit_outlined, size: 14,
+                            color: AppTheme.primaryRose),
+                        const SizedBox(width: 4),
+                        Text('Düzenle',
+                            style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryRose)),
+                      ],
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _delete,
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: AppTheme.softShadow,
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded,
+                        size: 18, color: Color(0xFFE53935)),
+                  ),
+                ),
+              ] else
+                Padding(
+                  padding: const EdgeInsets.only(right: 16, top: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _editing = false;
+                      _resetFields();
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusFull),
+                        boxShadow: AppTheme.softShadow,
+                      ),
+                      child: Text('İptal',
+                          style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textMedium)),
+                    ),
+                  ),
+                ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.deepRose,
+                      AppTheme.darkRose,
+                      AppTheme.primaryRose,
+                      const Color(0xFFD4809A),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -30, top: -30,
+                      child: Container(
+                        width: 120, height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.07),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 65, 20, 16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusSM),
+                            ),
+                            child: Icon(
+                              _editing
+                                  ? Icons.edit_rounded
+                                  : Icons.checkroom_rounded,
+                              color: Colors.white, size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _editing ? 'Kıyafeti Düzenle' : 'Kıyafet Detayı',
+                            style: GoogleFonts.playfairDisplay(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          if (_editing)
-            TextButton(
-              onPressed: () => setState(() { _editing = false; _resetFields(); }),
-              child: Text('İptal', style: GoogleFonts.poppins(color: AppTheme.textMedium)),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildImage(),
+                  const SizedBox(height: 20),
+                  _buildInfoCard(),
+                  const SizedBox(height: 16),
+                  if (_editing) ...[
+                    _buildEditSection(),
+                    const SizedBox(height: 24),
+                    _buildSaveButton(),
+                  ] else
+                    _buildStatsCard(),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
+          ),
         ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildImage(),
-            const SizedBox(height: 20),
-            _buildInfoCard(),
-            const SizedBox(height: 16),
-            if (_editing) ...[
-              _buildEditSection(),
-              const SizedBox(height: 24),
-              _buildSaveButton(),
-            ] else
-              _buildStatsCard(),
-            const SizedBox(height: 40),
-          ],
-        ),
       ),
     );
   }
 
   Widget _buildImage() {
     return Container(
-      height: 280,
+      height: 300,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF4F7),
-        borderRadius: BorderRadius.circular(20),
+        color: AppTheme.bgMid,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.mediumShadow,
       ),
       clipBehavior: Clip.antiAlias,
       child: CachedNetworkImage(
         imageUrl: widget.item.imageUrl,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const Center(
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryRose),
+        placeholder: (_, _) => Center(
+          child: Container(
+            width: 50, height: 50,
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              shape: BoxShape.circle,
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(14),
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+            ),
+          ),
         ),
-        errorWidget: (_, __, ___) => const Center(
-          child: Icon(Icons.broken_image_outlined, size: 60, color: AppTheme.textLight),
+        errorWidget: (_, _, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_outlined, size: 48, color: AppTheme.textLight),
+              const SizedBox(height: 8),
+              Text('Yüklenemedi', style: GoogleFonts.poppins(
+                  fontSize: 12, color: AppTheme.textLight)),
+            ],
+          ),
         ),
       ),
     );
@@ -197,8 +353,9 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,6 +368,22 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
           if (_brand != null && _brand!.isNotEmpty) ...[
             const Divider(height: 20, color: AppTheme.dividerColor),
             _infoRow('Marka', _brand!),
+          ],
+          if (widget.item.fit != null && widget.item.fit!.isNotEmpty) ...[
+            const Divider(height: 20, color: AppTheme.dividerColor),
+            _infoRow('Kalıp', widget.item.fit!),
+          ],
+          if (widget.item.fabric != null && widget.item.fabric!.isNotEmpty) ...[
+            const Divider(height: 20, color: AppTheme.dividerColor),
+            _infoRow('Kumaş', widget.item.fabric!),
+          ],
+          if (widget.item.pattern != null && widget.item.pattern!.isNotEmpty) ...[
+            const Divider(height: 20, color: AppTheme.dividerColor),
+            _infoRow('Desen', widget.item.pattern!),
+          ],
+          if (widget.item.style != null && widget.item.style!.isNotEmpty) ...[
+            const Divider(height: 20, color: AppTheme.dividerColor),
+            _infoRow('Tarz', widget.item.style!),
           ],
           if (_notes != null && _notes!.isNotEmpty) ...[
             const Divider(height: 20, color: AppTheme.dividerColor),
@@ -249,17 +422,37 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [Colors.white, AppTheme.bgStart],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Kullanım İstatistikleri',
-              style: GoogleFonts.poppins(
-                  fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                ),
+                child: const Icon(Icons.bar_chart_rounded,
+                    size: 14, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              Text('Kullanım İstatistikleri',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: AppTheme.textDark)),
+            ],
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               _statChip('👗', '${widget.item.wearCount}', 'kez giyildi'),
@@ -271,7 +464,7 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             'Eklendi: ${_formatDate(widget.item.createdAt)}',
             style: GoogleFonts.poppins(fontSize: 11, color: AppTheme.textLight),
@@ -284,20 +477,28 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
   Widget _statChip(String emoji, String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.bgEnd,
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [AppTheme.lightRose.withValues(alpha: 0.5), AppTheme.bgMid],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          border: Border.all(color: AppTheme.dividerColor),
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 20)),
-            const SizedBox(height: 4),
+            Text(emoji, style: const TextStyle(fontSize: 22)),
+            const SizedBox(height: 6),
             Text(value,
                 style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textDark)),
+                    fontSize: 18, fontWeight: FontWeight.w700,
+                    color: AppTheme.darkRose)),
             Text(label,
-                style: GoogleFonts.poppins(fontSize: 10, color: AppTheme.textLight)),
+                style: GoogleFonts.poppins(
+                    fontSize: 10, color: AppTheme.textLight),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -317,11 +518,46 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
         _sectionLabel('Mevsimler'),
         _buildSeasonPicker(),
         const SizedBox(height: 16),
+        _sectionLabel('Alt Kategori / Tür (İsteğe bağlı)'),
+        _buildTextField(
+          initialValue: _subCategory ?? '',
+          hint: 'Örn: Kot Pantolon, Şifon Bluz…',
+          onChanged: (v) => _subCategory = v,
+        ),
+        const SizedBox(height: 16),
         _sectionLabel('Marka (İsteğe bağlı)'),
         _buildTextField(
           initialValue: _brand ?? '',
           hint: 'Örn: Zara, H&M…',
           onChanged: (v) => _brand = v,
+        ),
+        const SizedBox(height: 16),
+        _sectionLabel('Kalıp (İsteğe bağlı)'),
+        _buildTextField(
+          initialValue: _fit ?? '',
+          hint: 'Örn: Dar, Oversize',
+          onChanged: (v) => _fit = v,
+        ),
+        const SizedBox(height: 16),
+        _sectionLabel('Kumaş (İsteğe bağlı)'),
+        _buildTextField(
+          initialValue: _fabric ?? '',
+          hint: 'Örn: Pamuk, İpek',
+          onChanged: (v) => _fabric = v,
+        ),
+        const SizedBox(height: 16),
+        _sectionLabel('Desen (İsteğe bağlı)'),
+        _buildTextField(
+          initialValue: _pattern ?? '',
+          hint: 'Örn: Çizgili, Düz',
+          onChanged: (v) => _pattern = v,
+        ),
+        const SizedBox(height: 16),
+        _sectionLabel('Tarz (İsteğe bağlı)'),
+        _buildTextField(
+          initialValue: _style ?? '',
+          hint: 'Örn: Spor, Şık',
+          onChanged: (v) => _style = v,
         ),
         const SizedBox(height: 16),
         _sectionLabel('Notlar (İsteğe bağlı)'),
@@ -405,7 +641,7 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
                   decoration: BoxDecoration(
                     color: c,
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFDDD), width: 0.5),
+                    border: Border.all(color: const Color(0xFFDDDDDD), width: 0.5),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -486,19 +722,30 @@ class _ClothingDetailScreenState extends State<ClothingDetailScreen> {
   }
 
   Widget _buildSaveButton() {
-    return FilledButton(
-      onPressed: _saving ? null : _save,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return GestureDetector(
+      onTap: _saving ? null : _save,
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: _saving ? null : AppTheme.primaryGradient,
+          color: _saving ? AppTheme.textFaint : null,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          boxShadow: _saving ? null : AppTheme.mediumShadow,
+        ),
+        child: Center(
+          child: _saving
+              ? const SizedBox(
+                  width: 22, height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : Text('Kaydet',
+                  style: GoogleFonts.poppins(
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                      color: Colors.white)),
+        ),
       ),
-      child: _saving
-          ? const SizedBox(
-              width: 20, height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-            )
-          : Text('Kaydet',
-              style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
     );
   }
 

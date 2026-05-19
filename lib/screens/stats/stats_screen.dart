@@ -8,6 +8,7 @@ import '../../providers/clothing_provider.dart';
 import '../../providers/outfit_provider.dart';
 import '../../providers/history_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/stilya_design_system.dart';
 
 class StatsScreen extends StatelessWidget {
   const StatsScreen({super.key});
@@ -87,61 +88,74 @@ class StatsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(
-          'İstatistikler',
-          style: GoogleFonts.playfairDisplay(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark),
+      appBar: const StilyaAppBar(
+        title: 'İstatistikler',
+        subtitle: 'Gardırobunun ritmini ve renklerini oku',
+        icon: Icons.bar_chart_rounded,
+      ),
+      body: StilyaGradientShell(
+        child: CustomScrollView(
+          slivers: [
+            if (items.isEmpty)
+              SliverFillRemaining(child: _buildEmpty())
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _StatsOverviewCard(
+                      clothing: items.length,
+                      outfits: outfits.outfits.length,
+                      favorites: favCount,
+                      history: history.entries.length,
+                    ),
+                    const SizedBox(height: 12),
+                    _SummaryRow(
+                      clothing: items.length,
+                      outfits: outfits.outfits.length,
+                      favorites: favCount,
+                      history: history.entries.length,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Kategori dağılımı ──────────────────────────────────
+                    if (catCount.isNotEmpty) ...[
+                      _SectionTitle('Kategori Dağılımı'),
+                      const SizedBox(height: 12),
+                      _CategoryPieCard(
+                        catCount: catCount,
+                        pieColors: _pieColors,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // ── Renk dağılımı ──────────────────────────────────────
+                    if (colorCount.isNotEmpty) ...[
+                      _SectionTitle('Renk Dağılımı'),
+                      const SizedBox(height: 12),
+                      _ColorBarsCard(
+                        colorCount: colorCount,
+                        colorMap: _colorMap,
+                        total: items.length,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // ── Mevsim dağılımı ────────────────────────────────────
+                    if (seasonCount.isNotEmpty) ...[
+                      _SectionTitle('Mevsim Dağılımı'),
+                      const SizedBox(height: 12),
+                      _SeasonCard(
+                        seasonCount: seasonCount,
+                        total: items.fold(0, (s, i) => s + i.seasons.length),
+                      ),
+                    ],
+                  ]),
+                ),
+              ),
+          ],
         ),
       ),
-      body: items.isEmpty
-          ? _buildEmpty()
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-              children: [
-                // ── Özet kartları ──────────────────────────────────────
-                _SummaryRow(
-                  clothing: items.length,
-                  outfits: outfits.outfits.length,
-                  favorites: favCount,
-                  history: history.entries.length,
-                ),
-                const SizedBox(height: 24),
-
-                // ── Kategori dağılımı ──────────────────────────────────
-                if (catCount.isNotEmpty) ...[
-                  _SectionTitle('Kategori Dağılımı'),
-                  const SizedBox(height: 12),
-                  _CategoryPieCard(catCount: catCount, pieColors: _pieColors),
-                  const SizedBox(height: 24),
-                ],
-
-                // ── Renk dağılımı ──────────────────────────────────────
-                if (colorCount.isNotEmpty) ...[
-                  _SectionTitle('Renk Dağılımı'),
-                  const SizedBox(height: 12),
-                  _ColorBarsCard(
-                    colorCount: colorCount,
-                    colorMap: _colorMap,
-                    total: items.length,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // ── Mevsim dağılımı ────────────────────────────────────
-                if (seasonCount.isNotEmpty) ...[
-                  _SectionTitle('Mevsim Dağılımı'),
-                  const SizedBox(height: 12),
-                  _SeasonCard(
-                    seasonCount: seasonCount,
-                    total: items.fold(0, (s, i) => s + i.seasons.length),
-                  ),
-                ],
-              ],
-            ),
     );
   }
 
@@ -154,26 +168,106 @@ class StatsScreen extends StatelessWidget {
             width: 90,
             height: 90,
             decoration: BoxDecoration(
-              color: AppTheme.lightRose,
+              gradient: AppTheme.primaryGradient,
               shape: BoxShape.circle,
+              boxShadow: AppTheme.mediumShadow,
             ),
-            child: const Icon(Icons.bar_chart_rounded,
-                size: 44, color: AppTheme.primaryRose),
+            child: const Icon(
+              Icons.bar_chart_rounded,
+              size: 44,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
             'Henüz Veri Yok',
             style: GoogleFonts.playfairDisplay(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textDark),
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textDark,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Gardıroba kıyafet ekledikçe\nistatistikler burada görünecek.',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
-                fontSize: 13, color: AppTheme.textMedium, height: 1.6),
+              fontSize: 13,
+              color: AppTheme.textMedium,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsOverviewCard extends StatelessWidget {
+  final int clothing;
+  final int outfits;
+  final int favorites;
+  final int history;
+
+  const _StatsOverviewCard({
+    required this.clothing,
+    required this.outfits,
+    required this.favorites,
+    required this.history,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: AppTheme.editorialGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.76)),
+        boxShadow: AppTheme.softShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              boxShadow: AppTheme.softShadow,
+            ),
+            child: const Icon(
+              Icons.insights_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gardırop özeti',
+                  style: GoogleFonts.playfairDisplay(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$clothing parça · $outfits kombin · $favorites favori · $history kayıt',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: AppTheme.textMedium,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -202,9 +296,10 @@ class _SectionTitle extends StatelessWidget {
         Text(
           text,
           style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textDark),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textDark,
+          ),
         ),
       ],
     );
@@ -236,25 +331,29 @@ class _SummaryRow extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _SummaryCard(
-            value: '$clothing',
-            label: 'Kıyafet',
-            icon: Icons.checkroom_rounded,
-            color: AppTheme.primaryRose),
+          value: '$clothing',
+          label: 'Kıyafet',
+          icon: Icons.checkroom_rounded,
+          color: AppTheme.primaryRose,
+        ),
         _SummaryCard(
-            value: '$outfits',
-            label: 'Kombin',
-            icon: Icons.style_rounded,
-            color: AppTheme.gold),
+          value: '$outfits',
+          label: 'Kombin',
+          icon: Icons.style_rounded,
+          color: AppTheme.gold,
+        ),
         _SummaryCard(
-            value: '$favorites',
-            label: 'Favori',
-            icon: Icons.favorite_rounded,
-            color: const Color(0xFFE07B6A)),
+          value: '$favorites',
+          label: 'Favori',
+          icon: Icons.favorite_rounded,
+          color: const Color(0xFFE07B6A),
+        ),
         _SummaryCard(
-            value: '$history',
-            label: 'Giyim Kaydı',
-            icon: Icons.history_rounded,
-            color: const Color(0xFF7B9ED9)),
+          value: '$history',
+          label: 'Giyim Kaydı',
+          icon: Icons.history_rounded,
+          color: const Color(0xFF7B9ED9),
+        ),
       ],
     );
   }
@@ -279,19 +378,20 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSM),
             ),
-            child: Icon(icon, size: 18, color: color),
+            child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(width: 10),
           Column(
@@ -301,14 +401,17 @@ class _SummaryCard extends StatelessWidget {
               Text(
                 value,
                 style: GoogleFonts.playfairDisplay(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: color),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
               ),
               Text(
                 label,
                 style: GoogleFonts.poppins(
-                    fontSize: 10, color: AppTheme.textLight),
+                  fontSize: 10,
+                  color: AppTheme.textLight,
+                ),
               ),
             ],
           ),
@@ -323,10 +426,7 @@ class _CategoryPieCard extends StatefulWidget {
   final Map<String, int> catCount;
   final List<Color> pieColors;
 
-  const _CategoryPieCard({
-    required this.catCount,
-    required this.pieColors,
-  });
+  const _CategoryPieCard({required this.catCount, required this.pieColors});
 
   @override
   State<_CategoryPieCard> createState() => _CategoryPieCardState();
@@ -344,8 +444,9 @@ class _CategoryPieCardState extends State<_CategoryPieCard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         children: [
@@ -361,8 +462,7 @@ class _CategoryPieCardState extends State<_CategoryPieCard> {
                         _touched = -1;
                         return;
                       }
-                      _touched = response!
-                          .touchedSection!.touchedSectionIndex;
+                      _touched = response!.touchedSection!.touchedSectionIndex;
                     });
                   },
                 ),
@@ -372,17 +472,14 @@ class _CategoryPieCardState extends State<_CategoryPieCard> {
                   return PieChartSectionData(
                     color: widget.pieColors[i % widget.pieColors.length],
                     value: entries[i].value.toDouble(),
-                    title: isTouch
-                        ? '${pct.toStringAsFixed(0)}%'
-                        : '',
+                    title: isTouch ? '${pct.toStringAsFixed(0)}%' : '',
                     radius: isTouch ? 70 : 60,
                     titleStyle: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
-                    badgeWidget: isTouch
-                        ? null
-                        : null,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                    badgeWidget: isTouch ? null : null,
                   );
                 }),
                 sectionsSpace: 2,
@@ -431,16 +528,12 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 5),
         Text(
           '$label: $value',
-          style: GoogleFonts.poppins(
-              fontSize: 11, color: AppTheme.textMedium),
+          style: GoogleFonts.poppins(fontSize: 11, color: AppTheme.textMedium),
         ),
       ],
     );
@@ -468,13 +561,13 @@ class _ColorBarsCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         children: top.map((entry) {
-          final barColor =
-              colorMap[entry.key] ?? AppTheme.primaryRose;
+          final barColor = colorMap[entry.key] ?? AppTheme.primaryRose;
           final ratio = entry.value / maxVal;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -487,8 +580,7 @@ class _ColorBarsCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: barColor,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: Colors.grey.shade300, width: 0.5),
+                    border: Border.all(color: Colors.grey.shade300, width: 0.5),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -497,7 +589,9 @@ class _ColorBarsCard extends StatelessWidget {
                   child: Text(
                     entry.key,
                     style: GoogleFonts.poppins(
-                        fontSize: 12, color: AppTheme.textDark),
+                      fontSize: 12,
+                      color: AppTheme.textDark,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -508,8 +602,7 @@ class _ColorBarsCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: ratio,
                       backgroundColor: AppTheme.bgEnd,
-                      valueColor:
-                          AlwaysStoppedAnimation(barColor),
+                      valueColor: AlwaysStoppedAnimation(barColor),
                       minHeight: 10,
                     ),
                   ),
@@ -521,9 +614,10 @@ class _ColorBarsCard extends StatelessWidget {
                     '${entry.value}',
                     textAlign: TextAlign.right,
                     style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textMedium),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMedium,
+                    ),
                   ),
                 ),
               ],
@@ -566,8 +660,9 @@ class _SeasonCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
         border: Border.all(color: AppTheme.dividerColor),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         children: ['İlkbahar', 'Yaz', 'Sonbahar', 'Kış'].map((season) {
@@ -579,15 +674,19 @@ class _SeasonCard extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                Text(_seasonIcons[season] ?? '',
-                    style: const TextStyle(fontSize: 18)),
+                Text(
+                  _seasonIcons[season] ?? '',
+                  style: const TextStyle(fontSize: 18),
+                ),
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 68,
                   child: Text(
                     season,
                     style: GoogleFonts.poppins(
-                        fontSize: 12, color: AppTheme.textDark),
+                      fontSize: 12,
+                      color: AppTheme.textDark,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -608,9 +707,10 @@ class _SeasonCard extends StatelessWidget {
                     '$count',
                     textAlign: TextAlign.right,
                     style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textMedium),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMedium,
+                    ),
                   ),
                 ),
               ],

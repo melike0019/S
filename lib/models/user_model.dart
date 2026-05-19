@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String id;
   final String email;
@@ -7,6 +9,10 @@ class UserModel {
   final List<String> badges;
   final DateTime createdAt;
   final String? styleProfile;
+  /// Doğum tarihi (tam gün bilgisi; saat kullanılmaz).
+  final DateTime? birthDate;
+  /// Batı güneş burcu, Türkçe (örn. Yay). [birthDate] yoksa null olabilir.
+  final String? zodiacSign;
 
   UserModel({
     required this.id,
@@ -17,9 +23,17 @@ class UserModel {
     this.badges = const [],
     required this.createdAt,
     this.styleProfile,
+    this.birthDate,
+    this.zodiacSign,
   });
 
   factory UserModel.fromFirestore(Map<String, dynamic> data, String id) {
+    DateTime? birth;
+    final rawBirth = data['birthDate'];
+    if (rawBirth is Timestamp) {
+      birth = rawBirth.toDate();
+    }
+
     return UserModel(
       id: id,
       email: data['email'] ?? '',
@@ -29,6 +43,8 @@ class UserModel {
       badges: List<String>.from(data['badges'] ?? []),
       createdAt: (data['createdAt'] as dynamic)?.toDate() ?? DateTime.now(),
       styleProfile: data['styleProfile'],
+      birthDate: birth,
+      zodiacSign: data['zodiacSign'] as String?,
     );
   }
 
@@ -41,16 +57,21 @@ class UserModel {
       'badges': badges,
       'createdAt': createdAt,
       'styleProfile': styleProfile,
+      if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
+      if (zodiacSign != null && zodiacSign!.isNotEmpty) 'zodiacSign': zodiacSign,
     };
   }
 
-  // Mevcut kullanıcıyı güncellemek için
   UserModel copyWith({
     String? displayName,
     String? photoURL,
     int? xpPoints,
     List<String>? badges,
     String? styleProfile,
+    DateTime? birthDate,
+    String? zodiacSign,
+    bool clearBirthDate = false,
+    bool clearZodiacSign = false,
   }) {
     return UserModel(
       id: id,
@@ -61,6 +82,8 @@ class UserModel {
       badges: badges ?? this.badges,
       createdAt: createdAt,
       styleProfile: styleProfile ?? this.styleProfile,
+      birthDate: clearBirthDate ? null : (birthDate ?? this.birthDate),
+      zodiacSign: clearZodiacSign ? null : (zodiacSign ?? this.zodiacSign),
     );
   }
 }

@@ -95,35 +95,87 @@ class _CreateOutfitScreenState extends State<CreateOutfitScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text('Yeni Kombin',
-            style: GoogleFonts.playfairDisplay(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textDark)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppTheme.primaryRose))
-                  : Text('Kaydet',
-                      style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.primaryRose)),
-            ),
-          ),
-        ],
-      ),
       body: Column(
         children: [
+          // ── Premium Header ─────────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.deepRose, AppTheme.darkRose,
+                    AppTheme.primaryRose, Color(0xFFD4809A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: AppTheme.softShadow,
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back_ios_new_rounded,
+                            size: 16, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                      ),
+                      child: const Icon(Icons.style_rounded,
+                          color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Yeni Kombin',
+                          style: GoogleFonts.playfairDisplay(
+                              fontSize: 20, fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                    ),
+                    GestureDetector(
+                      onTap: _saving ? null : _save,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _saving
+                              ? Colors.white.withValues(alpha: 0.15)
+                              : Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusFull),
+                          boxShadow:
+                              _saving ? null : AppTheme.softShadow,
+                        ),
+                        child: _saving
+                            ? const SizedBox(
+                                width: 14, height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryRose))
+                            : Text('Kaydet',
+                                style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.primaryRose)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
           // ── Kombin adı + filtre + seçilenler ──────────────────────
           Container(
             color: Colors.white,
@@ -227,20 +279,19 @@ class _CreateOutfitScreenState extends State<CreateOutfitScreen> {
                             onTap: () =>
                                 setState(() => _filterCategory = cat),
                             child: AnimatedContainer(
-                              duration:
-                                  const Duration(milliseconds: 180),
+                              duration: const Duration(milliseconds: 180),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
+                                  horizontal: 14, vertical: 7),
                               decoration: BoxDecoration(
-                                color: sel
-                                    ? AppTheme.primaryRose
-                                    : AppTheme.bgStart,
-                                borderRadius: BorderRadius.circular(14),
+                                gradient: sel ? AppTheme.primaryGradient : null,
+                                color: sel ? null : Colors.white,
+                                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                                 border: Border.all(
                                   color: sel
-                                      ? AppTheme.primaryRose
+                                      ? Colors.transparent
                                       : AppTheme.dividerColor,
                                 ),
+                                boxShadow: sel ? AppTheme.softShadow : null,
                               ),
                               child: Text(cat,
                                   style: GoogleFonts.poppins(
@@ -326,14 +377,13 @@ class _SelectableItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
           border: Border.all(
-            color: selected
-                ? AppTheme.primaryRose
-                : const Color(0xFFEDD5E2),
-            width: selected ? 2.5 : 1,
+            color: selected ? AppTheme.primaryRose : AppTheme.dividerColor,
+            width: selected ? 2 : 1,
           ),
           color: Colors.white,
+          boxShadow: selected ? AppTheme.softShadow : null,
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -344,8 +394,8 @@ class _SelectableItem extends StatelessWidget {
                 Expanded(
                   child: ColoredBox(
                     color: selected
-                        ? const Color(0xFFFFF0F5)
-                        : const Color(0xFFFAF4F7),
+                        ? AppTheme.lightRose.withValues(alpha: 0.3)
+                        : AppTheme.bgMid,
                     child: CachedNetworkImage(
                       imageUrl: item.imageUrl,
                       fit: BoxFit.contain,
@@ -391,17 +441,16 @@ class _SelectableItem extends StatelessWidget {
             // Seçim işareti
             if (selected)
               Positioned(
-                top: 6,
-                right: 6,
+                top: 6, right: 6,
                 child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryRose,
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
                     shape: BoxShape.circle,
+                    boxShadow: AppTheme.softShadow,
                   ),
                   child: const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 13),
+                      color: Colors.white, size: 14),
                 ),
               ),
           ],
@@ -442,20 +491,20 @@ class _ChipRow extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
+                    horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
-                  color: sel ? AppTheme.primaryRose : AppTheme.bgStart,
-                  borderRadius: BorderRadius.circular(14),
+                  gradient: sel ? AppTheme.primaryGradient : null,
+                  color: sel ? null : Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                   border: Border.all(
-                    color:
-                        sel ? AppTheme.primaryRose : AppTheme.dividerColor,
+                    color: sel ? Colors.transparent : AppTheme.dividerColor,
                   ),
+                  boxShadow: sel ? AppTheme.softShadow : null,
                 ),
                 child: Text(opt,
                     style: GoogleFonts.poppins(
                       fontSize: 11,
-                      fontWeight:
-                          sel ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
                       color: sel ? Colors.white : AppTheme.textMedium,
                     )),
               ),

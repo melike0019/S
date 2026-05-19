@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -28,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -63,7 +54,38 @@ class DefaultFirebaseOptions {
     messagingSenderId: '837225147201',
     projectId: 'stilya-b0eb7',
     storageBucket: 'stilya-b0eb7.firebasestorage.app',
+    androidClientId: '837225147201-i7hjo5eqn9aflribcbj1dmgubsu8on6r.apps.googleusercontent.com',
     iosClientId: '837225147201-peu7sreogjs86n2mom7n2006o3j326mc.apps.googleusercontent.com',
     iosBundleId: 'com.example.stilya',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAbJAvI_zZ9xRnQxXNNjdCtaS817zeetWg',
+    appId: '1:837225147201:web:eae09ca8f4d5e555aa8fc0',
+    messagingSenderId: '837225147201',
+    projectId: 'stilya-b0eb7',
+    authDomain: 'stilya-b0eb7.firebaseapp.com',
+    storageBucket: 'stilya-b0eb7.firebasestorage.app',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDAHR-WJm45QD3loeTnwJV7y6RQeaHcJYw',
+    appId: '1:837225147201:ios:6fbb9a3c4d70275eaa8fc0',
+    messagingSenderId: '837225147201',
+    projectId: 'stilya-b0eb7',
+    storageBucket: 'stilya-b0eb7.firebasestorage.app',
+    androidClientId: '837225147201-i7hjo5eqn9aflribcbj1dmgubsu8on6r.apps.googleusercontent.com',
+    iosClientId: '837225147201-peu7sreogjs86n2mom7n2006o3j326mc.apps.googleusercontent.com',
+    iosBundleId: 'com.example.stilya',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAbJAvI_zZ9xRnQxXNNjdCtaS817zeetWg',
+    appId: '1:837225147201:web:f78a2fb1eba3de3baa8fc0',
+    messagingSenderId: '837225147201',
+    projectId: 'stilya-b0eb7',
+    authDomain: 'stilya-b0eb7.firebaseapp.com',
+    storageBucket: 'stilya-b0eb7.firebasestorage.app',
+  );
+
 }

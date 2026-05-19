@@ -34,9 +34,11 @@ class _BlindSpotScreenState extends State<BlindSpotScreen> {
     });
 
     try {
+      final zodiac = context.read<AuthProvider>().user?.zodiacSign;
       final results = await context.read<AIService>().getBlindSpotSuggestion(
         forgottenItems: forgotten,
         allItems: all,
+        zodiacSign: zodiac,
       );
       if (mounted) setState(() => _suggestions = results);
     } catch (e) {
@@ -76,20 +78,20 @@ class _BlindSpotScreenState extends State<BlindSpotScreen> {
           SliverAppBar(
             expandedHeight: 160,
             pinned: true,
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.deepRose,
             title: Text(
               'Kör Nokta Analizi',
               style: GoogleFonts.playfairDisplay(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textDark),
+                  color: Colors.white),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF5A2D4C), AppTheme.darkRose,
-                        AppTheme.primaryRose],
+                    colors: [AppTheme.deepRose, AppTheme.darkRose,
+                        AppTheme.primaryRose, Color(0xFFD4809A)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

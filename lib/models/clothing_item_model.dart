@@ -10,6 +10,11 @@ class ClothingItem {
   final DateTime createdAt;
   final DateTime? lastWornAt;
   final int wearCount;
+  final String? fit;
+  final String? fabric;
+  final String? pattern;
+  final String? style;
+  final String? subCategory;
 
   ClothingItem({
     required this.id,
@@ -23,6 +28,11 @@ class ClothingItem {
     required this.createdAt,
     this.lastWornAt,
     this.wearCount = 0,
+    this.fit,
+    this.fabric,
+    this.pattern,
+    this.style,
+    this.subCategory,
   });
 
   // Firestore'dan gelen veriyi Dart nesnesine çevir
@@ -39,6 +49,11 @@ class ClothingItem {
       createdAt: (data['createdAt'] as dynamic)?.toDate() ?? DateTime.now(),
       lastWornAt: (data['lastWornAt'] as dynamic)?.toDate(),
       wearCount: data['wearCount'] ?? 0,
+      fit: data['fit'],
+      fabric: data['fabric'],
+      pattern: data['pattern'],
+      style: data['style'],
+      subCategory: data['subCategory'],
     );
   }
 
@@ -55,6 +70,11 @@ class ClothingItem {
       'createdAt': createdAt,
       'lastWornAt': lastWornAt,
       'wearCount': wearCount,
+      'fit': fit,
+      'fabric': fabric,
+      'pattern': pattern,
+      'style': style,
+      'subCategory': subCategory,
     };
   }
 }

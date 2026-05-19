@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/clothing_provider.dart';
 import '../../providers/outfit_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/stilya_design_system.dart';
 import 'create_outfit_screen.dart';
 
 class OutfitScreen extends StatefulWidget {
@@ -63,40 +64,39 @@ class _OutfitScreenState extends State<OutfitScreen>
 
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(
-          'Kombinler',
-          style: GoogleFonts.playfairDisplay(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark),
-        ),
+      appBar: StilyaAppBar(
+        title: 'Kombinler',
+        subtitle: 'Favorilerini, AI önerilerini ve planlarını yönet',
+        icon: Icons.style_rounded,
         bottom: TabBar(
           controller: _tabs,
           labelColor: AppTheme.primaryRose,
           unselectedLabelColor: AppTheme.textLight,
           indicatorColor: AppTheme.primaryRose,
           indicatorWeight: 2,
-          labelStyle:
-              GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
-          unselectedLabelStyle:
-              GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w400),
+          labelStyle: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+          ),
           tabs: _tabLabels.map((l) => Tab(text: l)).toList(),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(
-              builder: (_) => const CreateOutfitScreen()),
+          MaterialPageRoute(builder: (_) => const CreateOutfitScreen()),
         ),
         backgroundColor: AppTheme.primaryRose,
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
       body: outfitProv.isLoading && allOutfits.isEmpty
           ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryRose))
+              child: CircularProgressIndicator(color: AppTheme.primaryRose),
+            )
           : TabBarView(
               controller: _tabs,
               children: List.generate(_tabLabels.length, (i) {
@@ -104,10 +104,7 @@ class _OutfitScreenState extends State<OutfitScreen>
                 if (list.isEmpty) {
                   return _EmptyState(tabIndex: i);
                 }
-                return _OutfitList(
-                  outfits: list,
-                  allItems: clothingProv.items,
-                );
+                return _OutfitList(outfits: list, allItems: clothingProv.items);
               }),
             ),
     );
@@ -126,10 +123,8 @@ class _OutfitList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: outfits.length,
-      itemBuilder: (_, i) => _OutfitCard(
-        outfit: outfits[i],
-        allItems: allItems,
-      ),
+      itemBuilder: (_, i) =>
+          _OutfitCard(outfit: outfits[i], allItems: allItems),
     );
   }
 }
@@ -150,23 +145,33 @@ class _OutfitCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Kombinі Sil',
-            style: GoogleFonts.playfairDisplay(
-                fontSize: 18, fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Kombinі Sil',
+          style: GoogleFonts.playfairDisplay(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
-            '"${outfit.name}" kombinini silmek istediğine emin misin?',
-            style: GoogleFonts.poppins(fontSize: 13, color: AppTheme.textMedium)),
+          '"${outfit.name}" kombinini silmek istediğine emin misin?',
+          style: GoogleFonts.poppins(fontSize: 13, color: AppTheme.textMedium),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('İptal',
-                  style: GoogleFonts.poppins(color: AppTheme.textLight))),
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textLight),
+            ),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('Sil',
-                  style: GoogleFonts.poppins(color: AppTheme.errorRed))),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Sil',
+              style: GoogleFonts.poppins(color: AppTheme.errorRed),
+            ),
+          ),
         ],
       ),
     );
@@ -174,19 +179,20 @@ class _OutfitCard extends StatelessWidget {
 
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
-    await context
-        .read<OutfitProvider>()
-        .deleteOutfit(userId: userId, outfitId: outfit.id);
+    await context.read<OutfitProvider>().deleteOutfit(
+      userId: userId,
+      outfitId: outfit.id,
+    );
   }
 
   Future<void> _toggleFavorite(BuildContext context) async {
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
     await context.read<OutfitProvider>().toggleFavorite(
-          userId: userId,
-          outfitId: outfit.id,
-          isFavorite: !outfit.isFavorite,
-        );
+      userId: userId,
+      outfitId: outfit.id,
+      isFavorite: !outfit.isFavorite,
+    );
   }
 
   @override
@@ -196,26 +202,21 @@ class _OutfitCard extends StatelessWidget {
     return GestureDetector(
       onLongPress: () => _delete(context),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.dividerColor),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryRose.withAlpha(18),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          border: Border.all(color: AppTheme.dividerColor.withValues(alpha: 0.5)),
+          boxShadow: AppTheme.softShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Fotoğraf Mozaiği ──────────────────────────────────────
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: _OutfitMosaic(items: items),
             ),
 
@@ -231,9 +232,10 @@ class _OutfitCard extends StatelessWidget {
                         child: Text(
                           outfit.name,
                           style: GoogleFonts.playfairDisplay(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textDark),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textDark,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -268,11 +270,11 @@ class _OutfitCard extends StatelessWidget {
                       ),
                       if (outfit.occasion != null)
                         _Badge(
-                            label: outfit.occasion!,
-                            color: AppTheme.textMedium),
+                          label: outfit.occasion!,
+                          color: AppTheme.textMedium,
+                        ),
                       if (outfit.mood != null)
-                        _Badge(
-                            label: outfit.mood!, color: AppTheme.textMedium),
+                        _Badge(label: outfit.mood!, color: AppTheme.textMedium),
                     ],
                   ),
 
@@ -284,9 +286,10 @@ class _OutfitCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppTheme.textMedium,
-                          height: 1.5),
+                        fontSize: 12,
+                        color: AppTheme.textMedium,
+                        height: 1.5,
+                      ),
                     ),
                   ],
 
@@ -300,16 +303,18 @@ class _OutfitCard extends StatelessWidget {
                     if (outfit.makeupTips != null &&
                         outfit.makeupTips!.isNotEmpty)
                       _TipRow(
-                          icon: Icons.brush_outlined,
-                          label: 'Makyaj',
-                          text: outfit.makeupTips!),
+                        icon: Icons.brush_outlined,
+                        label: 'Makyaj',
+                        text: outfit.makeupTips!,
+                      ),
                     if (outfit.skincareTips != null &&
                         outfit.skincareTips!.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _TipRow(
-                          icon: Icons.spa_outlined,
-                          label: 'Cilt',
-                          text: outfit.skincareTips!),
+                        icon: Icons.spa_outlined,
+                        label: 'Cilt',
+                        text: outfit.skincareTips!,
+                      ),
                     ],
                   ],
 
@@ -317,19 +322,26 @@ class _OutfitCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(Icons.checkroom_outlined,
-                          size: 13, color: AppTheme.textLight),
+                      Icon(
+                        Icons.checkroom_outlined,
+                        size: 13,
+                        color: AppTheme.textLight,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${items.length} parça',
                         style: GoogleFonts.poppins(
-                            fontSize: 11, color: AppTheme.textLight),
+                          fontSize: 11,
+                          color: AppTheme.textLight,
+                        ),
                       ),
                       const Spacer(),
                       Text(
                         'Silmek için uzun bas',
                         style: GoogleFonts.poppins(
-                            fontSize: 10, color: AppTheme.textLight),
+                          fontSize: 10,
+                          color: AppTheme.textLight,
+                        ),
                       ),
                     ],
                   ),
@@ -356,8 +368,11 @@ class _OutfitMosaic extends StatelessWidget {
         height: 160,
         color: const Color(0xFFFAF4F7),
         child: const Center(
-          child: Icon(Icons.checkroom_outlined,
-              size: 40, color: AppTheme.textLight),
+          child: Icon(
+            Icons.checkroom_outlined,
+            size: 40,
+            color: AppTheme.textLight,
+          ),
         ),
       );
     }
@@ -369,11 +384,8 @@ class _OutfitMosaic extends StatelessWidget {
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: items.length,
-          itemBuilder: (_, i) => _MosaicCell(
-            url: items[i].imageUrl,
-            width: 130,
-            height: 160,
-          ),
+          itemBuilder: (_, i) =>
+              _MosaicCell(url: items[i].imageUrl, width: 130, height: 160),
         ),
       );
     }
@@ -383,14 +395,15 @@ class _OutfitMosaic extends StatelessWidget {
       height: 160,
       child: Row(
         children: items
-            .map((item) => Expanded(
-                  child: _MosaicCell(
-                    url: item.imageUrl,
-                    height: 160,
-                    borderRight:
-                        item != items.last,
-                  ),
-                ))
+            .map(
+              (item) => Expanded(
+                child: _MosaicCell(
+                  url: item.imageUrl,
+                  height: 160,
+                  borderRight: item != items.last,
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -420,18 +433,25 @@ class _MosaicCell extends StatelessWidget {
       placeholder: (_, _) => const ColoredBox(
         color: Color(0xFFFAF4F7),
         child: Center(
-            child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-              strokeWidth: 1.5, color: AppTheme.primaryRose),
-        )),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppTheme.primaryRose,
+            ),
+          ),
+        ),
       ),
       errorWidget: (_, _, _) => const ColoredBox(
         color: Color(0xFFFAF4F7),
         child: Center(
-            child: Icon(Icons.checkroom_outlined,
-                color: AppTheme.textLight, size: 28)),
+          child: Icon(
+            Icons.checkroom_outlined,
+            color: AppTheme.textLight,
+            size: 28,
+          ),
+        ),
       ),
     );
 
@@ -469,7 +489,10 @@ class _Badge extends StatelessWidget {
       child: Text(
         label,
         style: GoogleFonts.poppins(
-            fontSize: 10, fontWeight: FontWeight.w600, color: color),
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -480,8 +503,7 @@ class _TipRow extends StatelessWidget {
   final String label;
   final String text;
 
-  const _TipRow(
-      {required this.icon, required this.label, required this.text});
+  const _TipRow({required this.icon, required this.label, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -497,14 +519,18 @@ class _TipRow extends StatelessWidget {
                 TextSpan(
                   text: '$label: ',
                   style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textDark),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
                 ),
                 TextSpan(
                   text: text,
                   style: GoogleFonts.poppins(
-                      fontSize: 11, color: AppTheme.textMedium, height: 1.5),
+                    fontSize: 11,
+                    color: AppTheme.textMedium,
+                    height: 1.5,
+                  ),
                 ),
               ],
             ),
@@ -550,17 +576,21 @@ class _EmptyState extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.style_rounded,
-                  size: 42, color: Colors.white),
+              child: const Icon(
+                Icons.style_rounded,
+                size: 42,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
               _messages[tabIndex],
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: AppTheme.textMedium,
-                  height: 1.7),
+                fontSize: 13,
+                color: AppTheme.textMedium,
+                height: 1.7,
+              ),
             ),
           ],
         ),

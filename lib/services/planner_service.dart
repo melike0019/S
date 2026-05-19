@@ -72,6 +72,54 @@ class PlannerService {
     });
   }
 
+  /// İki güne atanmış kombinleri atomik olarak takas/taşı (biri boş ise taşıma).
+  Future<void> swapOrMoveBetweenDays({
+    required String userId,
+    required DateTime date,
+    required String fromDayKey,
+    required String toDayKey,
+  }) async {
+    if (fromDayKey == toDayKey) return;
+
+    final start = _weekStart(date);
+    final docId = _weekId(start);
+    final ref = _plannerRef(userId).doc(docId);
+
+    await _firestore.runTransaction((txn) async {
+      var snap = await txn.get(ref);
+      if (!snap.exists) {
+        txn.set(ref, WeeklyPlanModel(
+              id: docId,
+              userId: userId,
+              weekStartDate: start,
+              days: const {
+                'monday': null,
+                'tuesday': null,
+                'wednesday': null,
+                'thursday': null,
+                'friday': null,
+                'saturday': null,
+                'sunday': null,
+              },
+            ).toFirestore());
+        snap = await txn.get(ref);
+      }
+      if (!snap.exists) return;
+
+      final data = snap.data()! as Map<String, dynamic>;
+      final daysSrc = Map<String, dynamic>.from(
+        (data['days'] as Map<String, dynamic>? ?? {}),
+      );
+
+      final aOut = daysSrc[fromDayKey];
+      final bOut = daysSrc[toDayKey];
+      daysSrc[fromDayKey] = bOut;
+      daysSrc[toDayKey] = aOut;
+
+      txn.update(ref, {'days': daysSrc});
+    });
+  }
+
   Future<void> assignOutfit({
     required String userId,
     required DateTime date,

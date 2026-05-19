@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +11,7 @@ import '../../providers/clothing_provider.dart';
 import '../../providers/outfit_provider.dart';
 import '../../providers/planner_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/stilya_design_system.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -20,12 +22,22 @@ class PlannerScreen extends StatefulWidget {
 
 class _PlannerScreenState extends State<PlannerScreen> {
   static const _dayKeys = [
-    'monday', 'tuesday', 'wednesday', 'thursday',
-    'friday', 'saturday', 'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
   ];
   static const _dayLabels = [
-    'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe',
-    'Cuma', 'Cumartesi', 'Pazar',
+    'Pazartesi',
+    'Salı',
+    'Çarşamba',
+    'Perşembe',
+    'Cuma',
+    'Cumartesi',
+    'Pazar',
   ];
 
   @override
@@ -43,8 +55,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
   String _weekRangeLabel(DateTime weekStart) {
     final end = weekStart.add(const Duration(days: 6));
     final months = [
-      '', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
-      'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'
+      '',
+      'Oca',
+      'Şub',
+      'Mar',
+      'Nis',
+      'May',
+      'Haz',
+      'Tem',
+      'Ağu',
+      'Eyl',
+      'Eki',
+      'Kas',
+      'Ara',
     ];
     return '${weekStart.day} ${months[weekStart.month]} – '
         '${end.day} ${months[end.month]}';
@@ -53,9 +76,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _isToday(DateTime weekStart, int dayIndex) {
     final now = DateTime.now();
     final day = weekStart.add(Duration(days: dayIndex));
-    return day.year == now.year &&
-        day.month == now.month &&
-        day.day == now.day;
+    return day.year == now.year && day.month == now.month && day.day == now.day;
   }
 
   @override
@@ -69,89 +90,101 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: Text(
-          'Haftalık Ajanda',
-          style: GoogleFonts.playfairDisplay(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark),
-        ),
+      appBar: const StilyaAppBar(
+        title: 'Haftalık Ajanda',
+        subtitle: 'Haftanı stil ritmine göre planla',
+        icon: Icons.calendar_month_rounded,
       ),
       body: Column(
         children: [
           // ── Hafta Navigasyon Başlığı ──────────────────────────────
           Container(
             color: Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
                 IconButton(
                   onPressed: userId == null
                       ? null
-                      : () => context
-                          .read<PlannerProvider>()
-                          .changeWeek(userId, -1),
-                  icon: const Icon(Icons.chevron_left_rounded,
-                      color: AppTheme.textDark),
+                      : () => context.read<PlannerProvider>().changeWeek(
+                          userId,
+                          -1,
+                        ),
+                  icon: const Icon(
+                    Icons.chevron_left_rounded,
+                    color: AppTheme.textDark,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
                 Expanded(
                   child: Text(
-                    week == null
-                        ? ''
-                        : _weekRangeLabel(weekStart),
+                    week == null ? '' : _weekRangeLabel(weekStart),
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textDark),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textDark,
+                    ),
                   ),
                 ),
                 IconButton(
                   onPressed: userId == null
                       ? null
-                      : () => context
-                          .read<PlannerProvider>()
-                          .changeWeek(userId, 1),
-                  icon: const Icon(Icons.chevron_right_rounded,
-                      color: AppTheme.textDark),
+                      : () => context.read<PlannerProvider>().changeWeek(
+                          userId,
+                          1,
+                        ),
+                  icon: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppTheme.textDark,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
             ),
           ),
           const Divider(height: 1, color: AppTheme.dividerColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Kombini başka güne taşımak için kombin kartına uzun basıp istediğin güne bırak.',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppTheme.textLight,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
 
           // ── Günler ───────────────────────────────────────────────
           if (planner.isLoading && week == null)
             const Expanded(
               child: Center(
-                child: CircularProgressIndicator(
-                    color: AppTheme.primaryRose),
+                child: CircularProgressIndicator(color: AppTheme.primaryRose),
               ),
             )
           else
             Expanded(
               child: ListView.builder(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                 itemCount: _dayKeys.length,
                 itemBuilder: (_, i) {
                   final key = _dayKeys[i];
                   final label = _dayLabels[i];
                   final outfitId = week?.days[key];
                   final outfit = outfitId != null
-                      ? outfitProv.outfits
-                          .cast<OutfitModel?>()
-                          .firstWhere((o) => o?.id == outfitId,
-                              orElse: () => null)
+                      ? outfitProv.outfits.cast<OutfitModel?>().firstWhere(
+                          (o) => o?.id == outfitId,
+                          orElse: () => null,
+                        )
                       : null;
                   final isToday = _isToday(weekStart, i);
 
                   return _DayRow(
+                    dayKey: key,
                     dayLabel: label,
                     isToday: isToday,
                     outfit: outfit,
@@ -167,13 +200,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     ),
                     onRemove: outfit == null || userId == null
                         ? null
-                        : () => context
-                            .read<PlannerProvider>()
-                            .assignOutfit(
+                        : () => context.read<PlannerProvider>().assignOutfit(
+                            userId: userId,
+                            dayKey: key,
+                            outfitId: null,
+                          ),
+                    enableDragSource: outfit != null,
+                    onSwapFromDay: userId == null
+                        ? null
+                        : (from) {
+                            context.read<PlannerProvider>().swapDaysOutfits(
                               userId: userId,
-                              dayKey: key,
-                              outfitId: null,
-                            ),
+                              fromDayKey: from,
+                              toDayKey: key,
+                            );
+                          },
                   );
                 },
               ),
@@ -205,32 +246,38 @@ class _PlannerScreenState extends State<PlannerScreen> {
           Navigator.pop(context);
           if (userId == null) return;
           context.read<PlannerProvider>().assignOutfit(
-                userId: userId,
-                dayKey: dayKey,
-                outfitId: outfitId,
-              );
+            userId: userId,
+            dayKey: dayKey,
+            outfitId: outfitId,
+          );
         },
       ),
     );
   }
 }
 
-// ─── Gün Satırı ───────────────────────────────────────────────────────────────
+// ─── Gün Satırı (sürükle-bırak hedefi + kombin için long-press ile sürük) ────
 class _DayRow extends StatelessWidget {
+  final String dayKey;
   final String dayLabel;
   final bool isToday;
   final OutfitModel? outfit;
   final List<ClothingItem> allItems;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
+  final bool enableDragSource;
+  final void Function(String fromDayKey)? onSwapFromDay;
 
   const _DayRow({
+    required this.dayKey,
     required this.dayLabel,
     required this.isToday,
     required this.outfit,
     required this.allItems,
     required this.onTap,
     required this.onRemove,
+    required this.enableDragSource,
+    this.onSwapFromDay,
   });
 
   List<ClothingItem> get _items {
@@ -243,32 +290,54 @@ class _DayRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = _items;
 
-    return GestureDetector(
+    final card = GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isToday ? AppTheme.lightRose.withValues(alpha: 0.25) : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
           border: Border.all(
             color: isToday
-                ? AppTheme.primaryRose
-                : AppTheme.dividerColor,
+                ? AppTheme.primaryRose.withValues(alpha: 0.4)
+                : AppTheme.dividerColor.withValues(alpha: 0.6),
             width: isToday ? 1.5 : 1,
           ),
+          boxShadow: isToday
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryRose.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
-            // Gün etiketi
             Container(
               width: 72,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: isToday
-                    ? AppTheme.primaryRose.withAlpha(15)
-                    : Colors.transparent,
+                gradient: isToday
+                    ? LinearGradient(
+                        colors: [
+                          AppTheme.lightRose.withValues(alpha: 0.5),
+                          AppTheme.lightRose.withValues(alpha: 0.2),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      )
+                    : null,
                 borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(15)),
+                  left: Radius.circular(AppTheme.radiusLG - 1),
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -277,33 +346,34 @@ class _DayRow extends StatelessWidget {
                     Container(
                       margin: const EdgeInsets.only(bottom: 4),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryRose,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text('Bugün',
-                          style: GoogleFonts.poppins(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
+                      child: Text(
+                        'Bugün',
+                        style: GoogleFonts.poppins(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   Text(
                     dayLabel,
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isToday
-                          ? AppTheme.primaryRose
-                          : AppTheme.textDark,
+                      color: isToday ? AppTheme.primaryRose : AppTheme.textDark,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
-
-            // Dikey çizgi
             Container(
               width: 1,
               height: 72,
@@ -311,25 +381,145 @@ class _DayRow extends StatelessWidget {
                   ? AppTheme.primaryRose.withAlpha(40)
                   : AppTheme.dividerColor,
             ),
-
-            // Kombin görünümü
             Expanded(
               child: outfit == null
-                  ? _EmptySlot()
+                  ? const _EmptySlot()
                   : _OutfitPreview(outfit: outfit!, items: items),
             ),
-
-            // Sil / Seç ikonu
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: outfit != null && onRemove != null
                   ? GestureDetector(
                       onTap: onRemove,
-                      child: const Icon(Icons.close_rounded,
-                          size: 18, color: AppTheme.textLight),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppTheme.textLight,
+                      ),
                     )
-                  : const Icon(Icons.add_circle_outline_rounded,
-                      size: 20, color: AppTheme.textLight),
+                  : const Icon(
+                      Icons.add_circle_outline_rounded,
+                      size: 20,
+                      color: AppTheme.textLight,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final marginWrap = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: LongPressDraggable<String>(
+        data: dayKey,
+        maxSimultaneousDrags: enableDragSource ? 1 : 0,
+        hapticFeedbackOnStart: true,
+        feedback: _PlannerDragBadge(
+          dayLabel: dayLabel,
+          subtitle: outfit?.name ?? 'Kombin',
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.42,
+          child: IgnorePointer(child: card),
+        ),
+        child: card,
+      ),
+    );
+
+    if (onSwapFromDay == null) {
+      return marginWrap;
+    }
+
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (d) => d.data != dayKey,
+      onAcceptWithDetails: (d) {
+        if (d.data == dayKey) return;
+        HapticFeedback.mediumImpact();
+        onSwapFromDay!(d.data);
+      },
+      builder: (context, candidate, rejected) {
+        final hovered = candidate.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          margin: EdgeInsets.only(bottom: hovered ? 8 : 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: hovered
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryRose.withAlpha(90),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: hovered ? AppTheme.primaryRose : Colors.transparent,
+                width: hovered ? 2 : 0,
+              ),
+            ),
+            child: marginWrap,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Sürüklerken küçük etiket
+class _PlannerDragBadge extends StatelessWidget {
+  final String dayLabel;
+  final String subtitle;
+
+  const _PlannerDragBadge({required this.dayLabel, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 12,
+      borderRadius: BorderRadius.circular(14),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.touch_app_rounded,
+              color: AppTheme.primaryRose.withAlpha(220),
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  dayLabel,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppTheme.primaryRose,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -339,14 +529,15 @@ class _DayRow extends StatelessWidget {
 }
 
 class _EmptySlot extends StatelessWidget {
+  const _EmptySlot();
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
       child: Text(
         'Kombin seç…',
-        style: GoogleFonts.poppins(
-            fontSize: 12, color: AppTheme.textLight),
+        style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textLight),
       ),
     );
   }
@@ -380,8 +571,7 @@ class _OutfitPreview extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFFFAF4F7),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: Colors.white, width: 1.5),
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: CachedNetworkImage(
@@ -389,9 +579,10 @@ class _OutfitPreview extends StatelessWidget {
                           fit: BoxFit.contain,
                           placeholder: (_, _) => const SizedBox(),
                           errorWidget: (_, _, _) => const Icon(
-                              Icons.checkroom_outlined,
-                              size: 16,
-                              color: AppTheme.textLight),
+                            Icons.checkroom_outlined,
+                            size: 16,
+                            color: AppTheme.textLight,
+                          ),
                         ),
                       ),
                     ),
@@ -409,16 +600,19 @@ class _OutfitPreview extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textDark),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
                 ),
                 if (outfit.occasion != null) ...[
                   const SizedBox(height: 3),
                   Text(
                     outfit.occasion!,
                     style: GoogleFonts.poppins(
-                        fontSize: 10, color: AppTheme.textLight),
+                      fontSize: 10,
+                      color: AppTheme.textLight,
+                    ),
                   ),
                 ],
               ],
@@ -478,9 +672,10 @@ class _OutfitPickerSheet extends StatelessWidget {
           Text(
             '$dayLabel için kombin seç',
             style: GoogleFonts.playfairDisplay(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textDark),
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textDark,
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -491,7 +686,9 @@ class _OutfitPickerSheet extends StatelessWidget {
                 child: Text(
                   'Henüz kaydedilmiş kombin yok.',
                   style: GoogleFonts.poppins(
-                      fontSize: 13, color: AppTheme.textMedium),
+                    fontSize: 13,
+                    color: AppTheme.textMedium,
+                  ),
                 ),
               ),
             )
@@ -547,26 +744,27 @@ class _OutfitPickerSheet extends StatelessWidget {
                                   height: 56,
                                   color: const Color(0xFFFAF4F7),
                                   child: const Icon(
-                                      Icons.checkroom_outlined,
-                                      size: 20,
-                                      color: AppTheme.textLight),
+                                    Icons.checkroom_outlined,
+                                    size: 20,
+                                    color: AppTheme.textLight,
+                                  ),
                                 ),
                               ),
                             ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   outfit.name,
                                   style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? AppTheme.primaryRose
-                                          : AppTheme.textDark),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? AppTheme.primaryRose
+                                        : AppTheme.textDark,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -575,15 +773,19 @@ class _OutfitPickerSheet extends StatelessWidget {
                                   '${items.length} parça'
                                   '${outfit.occasion != null ? ' · ${outfit.occasion}' : ''}',
                                   style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      color: AppTheme.textLight),
+                                    fontSize: 11,
+                                    color: AppTheme.textLight,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           if (isSelected)
-                            const Icon(Icons.check_circle_rounded,
-                                color: AppTheme.primaryRose, size: 20),
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: AppTheme.primaryRose,
+                              size: 20,
+                            ),
                         ],
                       ),
                     ),

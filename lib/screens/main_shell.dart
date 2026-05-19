@@ -11,7 +11,10 @@ import '../models/clothing_item_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/clothing_provider.dart';
 import '../providers/outfit_provider.dart';
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/badge_checker.dart';
+import '../widgets/stilya_design_system.dart';
 import 'home/home_screen.dart';
 import 'wardrobe/wardrobe_screen.dart';
 import 'outfit/outfit_screen.dart';
@@ -44,11 +47,31 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   ];
 
   static const List<_NavItem> _navItems = [
-    _NavItem(icon: Icons.home_outlined,    selectedIcon: Icons.home_rounded,          label: 'Ana Sayfa'),
-    _NavItem(icon: Icons.checkroom_outlined, selectedIcon: Icons.checkroom,           label: 'Gardırop'),
-    _NavItem(icon: Icons.style_outlined,   selectedIcon: Icons.style,                 label: 'Kombin'),
-    _NavItem(icon: Icons.calendar_month_outlined, selectedIcon: Icons.calendar_month, label: 'Ajanda'),
-    _NavItem(icon: Icons.person_outline,   selectedIcon: Icons.person_rounded,        label: 'Profil'),
+    _NavItem(
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
+      label: 'Ana Sayfa',
+    ),
+    _NavItem(
+      icon: Icons.checkroom_outlined,
+      selectedIcon: Icons.checkroom,
+      label: 'Gardırop',
+    ),
+    _NavItem(
+      icon: Icons.style_outlined,
+      selectedIcon: Icons.style,
+      label: 'Kombin',
+    ),
+    _NavItem(
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month,
+      label: 'Ajanda',
+    ),
+    _NavItem(
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person_rounded,
+      label: 'Profil',
+    ),
   ];
 
   @override
@@ -56,6 +79,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startListening();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initUserAndBadges());
+  }
+
+  /// UserProvider'ı başlat ve mevcut kullanıcı için geçmiş rozetleri kontrol et.
+  /// Bu sayede eski kullanıcılar rozet sisteminden önce kazandıkları
+  /// başarımları uygulama açılışında retroaktif olarak alır.
+  Future<void> _initUserAndBadges() async {
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId == null) return;
+
+    // UserProvider'ı başlat (badge check için gerekli)
+    context.read<UserProvider>().watchUser(userId);
+
+    // Kısa gecikme: stream'in ilk veriyi almasını bekle
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) await checkBadgesAndNotify(context);
   }
 
   @override
@@ -68,20 +108,21 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _startListening() {
-    _accelSub = accelerometerEventStream(
-      samplingPeriod: SensorInterval.gameInterval,
-    ).listen((event) {
-      final magnitude = sqrt(
-        event.x * event.x + event.y * event.y + event.z * event.z,
-      );
-      final now = DateTime.now();
-      if (magnitude > _kShakeThreshold &&
-          now.difference(_lastShake) > _kShakeCooldown &&
-          !_sheetOpen) {
-        _lastShake = now;
-        _onShake();
-      }
-    });
+    _accelSub =
+        accelerometerEventStream(
+          samplingPeriod: SensorInterval.gameInterval,
+        ).listen((event) {
+          final magnitude = sqrt(
+            event.x * event.x + event.y * event.y + event.z * event.z,
+          );
+          final now = DateTime.now();
+          if (magnitude > _kShakeThreshold &&
+              now.difference(_lastShake) > _kShakeCooldown &&
+              !_sheetOpen) {
+            _lastShake = now;
+            _onShake();
+          }
+        });
   }
 
   void _onShake() {
@@ -96,10 +137,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ShakeOutfitSheet(
-        items: outfit,
-        allItems: clothing.items,
-      ),
+      builder: (_) =>
+          _ShakeOutfitSheet(items: outfit, allItems: clothing.items),
     ).whenComplete(() => _sheetOpen = false);
   }
 
@@ -121,8 +160,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final result = <ClothingItem>[];
     // Öncelikli kategorilerden birer parça seç
     const priority = [
-      'Üst Giyim', 'Alt Giyim', 'Elbise / Tulum',
-      'Ayakkabı', 'Dış Giyim', 'Aksesuar', 'Çanta',
+      'Üst Giyim',
+      'Alt Giyim',
+      'Elbise / Tulum',
+      'Ayakkabı',
+      'Dış Giyim',
+      'Aksesuar',
+      'Çanta',
     ];
     for (final cat in priority) {
       final list = groups[cat];
@@ -158,41 +202,30 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryRose.withAlpha(25),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-        border: const Border(
-          top: BorderSide(color: AppTheme.dividerColor, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: List.generate(_navItems.length, (i) {
-              return _NavButton(
-                item: _navItems[i],
-                selected: _currentIndex == i,
-                onTap: () => setState(() => _currentIndex = i),
-              );
-            }),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        child: StilyaGlassCard(
+          radius: AppTheme.radius2XL,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            height: 68,
+            child: Row(
+              children: List.generate(_navItems.length, (i) {
+                return _NavButton(
+                  item: _navItems[i],
+                  selected: _currentIndex == i,
+                  onTap: () => setState(() => _currentIndex = i),
+                );
+              }),
+            ),
           ),
         ),
       ),
@@ -205,10 +238,7 @@ class _ShakeOutfitSheet extends StatefulWidget {
   final List<ClothingItem> items;
   final List<ClothingItem> allItems;
 
-  const _ShakeOutfitSheet({
-    required this.items,
-    required this.allItems,
-  });
+  const _ShakeOutfitSheet({required this.items, required this.allItems});
 
   @override
   State<_ShakeOutfitSheet> createState() => _ShakeOutfitSheetState();
@@ -229,10 +259,14 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
-    _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut)
-        .drive(Tween(begin: 0.7, end: 1.0));
-    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn)
-        .drive(Tween(begin: 0.0, end: 1.0));
+    _scaleAnim = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.elasticOut,
+    ).drive(Tween(begin: 0.7, end: 1.0));
+    _fadeAnim = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeIn,
+    ).drive(Tween(begin: 0.0, end: 1.0));
     _ctrl.forward();
   }
 
@@ -250,16 +284,17 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
     setState(() => _saving = true);
     final season = _seasonLabel();
     final ok = await context.read<OutfitProvider>().addOutfit(
-          userId: userId,
-          name: 'Salla-Giy: $season Kombini',
-          itemIds: widget.items.map((i) => i.id).toList(),
-          source: 'manual',
-        );
+      userId: userId,
+      name: 'Salla-Giy: $season Kombini',
+      itemIds: widget.items.map((i) => i.id).toList(),
+      source: 'manual',
+    );
     if (mounted) {
       setState(() {
         _saving = false;
         if (ok) _saved = true;
       });
+      if (ok) unawaited(checkBadgesAndNotify(context));
     }
   }
 
@@ -276,18 +311,21 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
     return FadeTransition(
       opacity: _fadeAnim,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        decoration: BoxDecoration(
+          color: AppTheme.bgStart,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: AppTheme.strongShadow,
         ),
         padding: EdgeInsets.fromLTRB(
-          20, 16, 20,
+          24,
+          16,
+          24,
           MediaQuery.of(context).viewInsets.bottom + 32,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Tutamaç
+            // Handle
             Container(
               width: 40,
               height: 4,
@@ -296,23 +334,24 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // Başlık
+            // Header
             Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                    boxShadow: AppTheme.softShadow,
                   ),
                   child: const Center(
-                    child: Text('🎲', style: TextStyle(fontSize: 22)),
+                    child: Text('🎲', style: TextStyle(fontSize: 24)),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,14 +359,17 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
                       Text(
                         'Salla-Giy!',
                         style: GoogleFonts.playfairDisplay(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textDark),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textDark,
+                        ),
                       ),
                       Text(
-                        '${_seasonLabel()} kombinin hazır ✨',
+                        '${_seasonLabel()} mevsimi kombinin hazır ✨',
                         style: GoogleFonts.poppins(
-                            fontSize: 12, color: AppTheme.textLight),
+                          fontSize: 12,
+                          color: AppTheme.textLight,
+                        ),
                       ),
                     ],
                   ),
@@ -336,83 +378,102 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
             ),
             const SizedBox(height: 20),
 
-            // Kıyafet fotoğrafları
+            // Outfit items grid
             ScaleTransition(
               scale: _scaleAnim,
               child: SizedBox(
-                height: 150,
+                height: 160,
                 child: Row(
                   children: widget.items
-                      .map((item) => Expanded(
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                right: item != widget.items.last ? 6 : 0,
+                      .asMap()
+                      .entries
+                      .map(
+                        (entry) => Expanded(
+                          child: Container(
+                            margin: EdgeInsets.only(
+                              right: entry.key < widget.items.length - 1
+                                  ? 6
+                                  : 0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgMid,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusMD,
                               ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFAF4F7),
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: AppTheme.dividerColor),
+                              border: Border.all(
+                                color: AppTheme.dividerColor.withValues(alpha: 0.6),
                               ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: CachedNetworkImage(
-                                      imageUrl: item.imageUrl,
-                                      fit: BoxFit.contain,
-                                      width: double.infinity,
-                                      placeholder: (_, _) => const Center(
-                                        child: SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 1.5,
-                                              color: AppTheme.primaryRose),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: CachedNetworkImage(
+                                    imageUrl: entry.value.imageUrl,
+                                    fit: BoxFit.contain,
+                                    width: double.infinity,
+                                    placeholder: (_, _) => const Center(
+                                      child: SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          color: AppTheme.primaryRose,
                                         ),
                                       ),
-                                      errorWidget: (_, _, _) => const Center(
-                                        child: Icon(Icons.checkroom_outlined,
-                                            color: AppTheme.textLight,
-                                            size: 24),
+                                    ),
+                                    errorWidget: (_, _, _) => const Center(
+                                      child: Icon(
+                                        Icons.checkroom_outlined,
+                                        color: AppTheme.textLight,
+                                        size: 24,
                                       ),
                                     ),
                                   ),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 3),
-                                    color: Colors.white,
-                                    child: Text(
-                                      item.category,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.poppins(
-                                          fontSize: 8,
-                                          color: AppTheme.textMedium,
-                                          fontWeight: FontWeight.w500),
+                                ),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  child: Text(
+                                    entry.value.category,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 8,
+                                      color: AppTheme.textMedium,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ))
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
             ),
             const SizedBox(height: 20),
 
-            // Butonlar
+            // Buttons
             Row(
               children: [
-                // Tekrar Sal
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
+                  child: GestureDetector(
+                    onTap: () {
                       Navigator.pop(context);
-                      // Kısa gecikme sonra tekrar tetikle
                       Future.delayed(const Duration(milliseconds: 300), () {
                         if (context.mounted) {
                           final clothing = context.read<ClothingProvider>();
@@ -424,46 +485,82 @@ class _ShakeOutfitSheetState extends State<_ShakeOutfitSheet>
                         }
                       });
                     },
-                    icon: const Text('🎲', style: TextStyle(fontSize: 14)),
-                    label: Text('Tekrar Sal',
-                        style: GoogleFonts.poppins(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: AppTheme.bgMid,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                        border: Border.all(color: AppTheme.dividerColor),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('🎲', style: TextStyle(fontSize: 15)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Tekrar Sal',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                // Kaydet
+                const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _saved ? null : (_saving ? null : _save),
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : Icon(
+                  child: GestureDetector(
+                    onTap: _saved ? null : (_saving ? null : _save),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: _saved
+                            ? const LinearGradient(
+                                colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
+                              )
+                            : AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                        boxShadow: AppTheme.softShadow,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_saving)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          else
+                            Icon(
+                              _saved
+                                  ? Icons.check_rounded
+                                  : Icons.bookmark_add_outlined,
+                              color: Colors.white,
+                              size: 17,
+                            ),
+                          const SizedBox(width: 8),
+                          Text(
                             _saved
-                                ? Icons.check_rounded
-                                : Icons.bookmark_add_outlined,
-                            size: 18,
+                                ? 'Kaydedildi'
+                                : _saving
+                                ? 'Kaydediliyor…'
+                                : 'Kombinimi Kaydet',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
-                    label: Text(
-                      _saved
-                          ? 'Kaydedildi'
-                          : _saving
-                              ? 'Kaydediliyor…'
-                              : 'Kombinimi Kaydet',
-                      style: GoogleFonts.poppins(fontSize: 13),
-                    ),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -488,7 +585,7 @@ class _NavItem {
   });
 }
 
-class _NavButton extends StatelessWidget {
+class _NavButton extends StatefulWidget {
   final _NavItem item;
   final bool selected;
   final VoidCallback onTap;
@@ -500,43 +597,107 @@ class _NavButton extends StatelessWidget {
   });
 
   @override
+  State<_NavButton> createState() => _NavButtonState();
+}
+
+class _NavButtonState extends State<_NavButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scale = Tween(
+      begin: 1.0,
+      end: 0.88,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTapDown: (_) => _ctrl.forward(),
+        onTapUp: (_) {
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: selected ? 44 : 36,
-              height: selected ? 32 : 28,
-              decoration: selected
-                  ? BoxDecoration(
-                      color: AppTheme.lightRose,
-                      borderRadius: BorderRadius.circular(20),
-                    )
-                  : null,
-              child: Icon(
-                selected ? item.selectedIcon : item.icon,
-                size: 20,
-                color: selected ? AppTheme.primaryRose : AppTheme.textLight,
+        child: AnimatedBuilder(
+          animation: _scale,
+          builder: (_, child) =>
+              Transform.scale(scale: _scale.value, child: child),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOutCubic,
+                width: widget.selected ? 48 : 38,
+                height: widget.selected ? 32 : 26,
+                decoration: widget.selected
+                    ? BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.lightRose, Color(0xFFFFE8F2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryRose.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      )
+                    : null,
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      widget.selected
+                          ? widget.item.selectedIcon
+                          : widget.item.icon,
+                      key: ValueKey(widget.selected),
+                      size: widget.selected ? 21 : 20,
+                      color: widget.selected
+                          ? AppTheme.primaryRose
+                          : AppTheme.textLight,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? AppTheme.primaryRose : AppTheme.textLight,
-                fontFamily: 'Poppins',
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: widget.selected
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                  color: widget.selected
+                      ? AppTheme.primaryRose
+                      : AppTheme.textLight,
+                  fontFamily: 'Poppins',
+                  letterSpacing: widget.selected ? 0.2 : 0,
+                ),
+                child: Text(widget.item.label),
               ),
-              child: Text(item.label),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

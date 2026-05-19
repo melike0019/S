@@ -56,6 +56,9 @@ lib/core/api_config.dart
 run_config.sh
 run_config.bat
 
+# VS Code kişisel ayarları — key içerebilir
+.vscode/launch.json
+
 # Firebase Functions
 functions/.runtimeconfig.json
 # Build outputs

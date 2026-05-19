@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/clothing_item_model.dart';
 import '../services/clothing_service.dart';
-import 'dart:async'; 
+import 'dart:async';
 
 enum ClothingStatus { initial, loading, loaded, error }
 
@@ -90,6 +90,11 @@ class ClothingProvider extends ChangeNotifier {
     required List<String> seasons,
     String? brand,
     String? notes,
+    String? fit,
+    String? fabric,
+    String? pattern,
+    String? style,
+    String? subCategory,
   }) async {
     _setLoading();
     try {
@@ -101,6 +106,11 @@ class ClothingProvider extends ChangeNotifier {
         seasons: seasons,
         brand: brand,
         notes: notes,
+        fit: fit,
+        fabric: fabric,
+        pattern: pattern,
+        style: style,
+        subCategory: subCategory,
       );
       // watchItems stream'i Firestore'dan değişikliği zaten alacak,
       // burada manuel ekleme yapmıyoruz — çift gösterim önlenir.
@@ -143,6 +153,11 @@ class ClothingProvider extends ChangeNotifier {
     List<String>? seasons,
     String? brand,
     String? notes,
+    String? fit,
+    String? fabric,
+    String? pattern,
+    String? style,
+    String? subCategory,
   }) async {
     try {
       await _clothingService.updateClothingItem(
@@ -153,6 +168,11 @@ class ClothingProvider extends ChangeNotifier {
         seasons: seasons,
         brand: brand,
         notes: notes,
+        fit: fit,
+        fabric: fabric,
+        pattern: pattern,
+        style: style,
+        subCategory: subCategory,
       );
 
       // Lokal listede güncelle
@@ -167,6 +187,11 @@ class ClothingProvider extends ChangeNotifier {
             seasons: seasons ?? item.seasons,
             brand: brand ?? item.brand,
             notes: notes ?? item.notes,
+            fit: fit ?? item.fit,
+            fabric: fabric ?? item.fabric,
+            pattern: pattern ?? item.pattern,
+            style: style ?? item.style,
+            subCategory: subCategory ?? item.subCategory,
             createdAt: item.createdAt,
             lastWornAt: item.lastWornAt,
             wearCount: item.wearCount,
@@ -206,6 +231,11 @@ class ClothingProvider extends ChangeNotifier {
             seasons: item.seasons,
             brand: item.brand,
             notes: item.notes,
+            fit: item.fit,
+            fabric: item.fabric,
+            pattern: item.pattern,
+            style: item.style,
+            subCategory: item.subCategory,
             createdAt: item.createdAt,
             lastWornAt: DateTime.now(),
             wearCount: item.wearCount + 1,

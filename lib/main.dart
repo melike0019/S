@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
@@ -16,26 +19,28 @@ import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // Native splash'ı Firebase init bitene kadar tut
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Offline persistence — internet olmadığında cache'den veri serve et
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
-  await NotificationService().init();
+  // Bildirim servisi arka planda başlatılır, başlangıcı bloklamaz
+  unawaited(NotificationService().init());
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(),
-        ),
-        ChangeNotifierProvider<UserProvider>(
-          create: (_) => UserProvider(),
-        ),
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+        ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
         ChangeNotifierProvider<ClothingProvider>(
           create: (_) => ClothingProvider(),
         ),
-        ChangeNotifierProvider<OutfitProvider>(
-          create: (_) => OutfitProvider(),
-        ),
+        ChangeNotifierProvider<OutfitProvider>(create: (_) => OutfitProvider()),
         ChangeNotifierProvider<WeatherProvider>(
           create: (_) => WeatherProvider(),
         ),
@@ -45,13 +50,13 @@ void main() async {
         ChangeNotifierProvider<HistoryProvider>(
           create: (_) => HistoryProvider(),
         ),
-        Provider<AIService>(
-          create: (_) => AIService(),
-        ),
+        Provider<AIService>(create: (_) => AIService()),
       ],
       child: const StilyaApp(),
     ),
   );
+  // NOT: FlutterNativeSplash.remove() SplashScreen.initState() içinde çağrılır
+  // böylece Flutter ilk frame'i çizdikten sonra native splash kalkar, siyah ekran olmaz
 }
 
 class StilyaApp extends StatelessWidget {
@@ -63,6 +68,18 @@ class StilyaApp extends StatelessWidget {
       title: 'Stilya',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(
+              minScaleFactor: 0.88,
+              maxScaleFactor: 1.16,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const SplashScreen(),
     );
   }

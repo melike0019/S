@@ -1,36 +1,31 @@
-/// Bu dosya şablon/örnek dosyadır — GitHub'a gönderilmesi normaldir.
+/// KURULUM TALİMATI
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Bu dosya bir şablondur — içinde gerçek anahtar YOKTUR.
 ///
-/// KURULUM:
-///   1. run_config.sh (Mac/Linux) veya run_config.bat (Windows) dosyasını
-///      proje kök dizininde oluştur (bu dosyalar .gitignore'da).
-///   2. İçine gerçek anahtarlarını yaz.
-///   3. Uygulamayı o betikle çalıştır:
-///        bash run_config.sh          (Mac/Linux)
-///        run_config.bat              (Windows)
-///
-/// Alternatif — VS Code launch.json:
-///   "toolArgs": [
-///     "--dart-define=WEATHER_API_KEY=XXX",
-///     "--dart-define=GROQ_API_KEY=XXX"
-///   ]
+/// 1. Bu dosyayı kopyala: api_config.dart
+/// 2. Gerçek anahtarlarını YAZ kısımlarına yaz.
+/// 3. Kaydet — api_config.dart zaten .gitignore'dadır, git'e gitmez.
+/// 4. Artık `flutter run` ile çalıştırabilirsin.
 ///
 /// Anahtar kaynakları (ücretsiz):
 ///   OpenWeatherMap : https://openweathermap.org/api
 ///   Groq           : https://console.groq.com
+///   Google Gemini  : https://aistudio.google.com/app/apikey
+///   Hugging Face   : https://huggingface.co/settings/tokens
+/// ─────────────────────────────────────────────────────────────────────────────
 class ApiConfig {
   // Hava durumu — OpenWeatherMap
-  static const String weatherApiKey = String.fromEnvironment(
-    'WEATHER_API_KEY',
-    defaultValue: '',
-  );
-  static const String weatherBaseUrl =
-      'https://api.openweathermap.org/data/2.5';
+  static const String weatherApiKey = 'BURAYA_OPENWEATHERMAP_ANAHTARINI_YAZ';
+  static const String weatherBaseUrl = 'https://api.openweathermap.org/data/2.5';
 
-  // Yapay zeka — Groq (ücretsiz, OpenAI uyumlu)
-  static const String groqApiKey = String.fromEnvironment(
-    'GROQ_API_KEY',
-    defaultValue: '',
-  );
+  // Yapay zeka — Groq (OpenAI uyumlu, ücretsiz)
+  static const String groqApiKey = 'BURAYA_GROQ_ANAHTARINI_YAZ';
   static const String groqModel   = 'llama-3.3-70b-versatile';
   static const String groqBaseUrl = 'https://api.groq.com/openai/v1';
+
+  // Yapay zeka — Google Gemini (Görsel Analiz İçin)
+  static const String geminiApiKey = 'BURAYA_GEMINI_ANAHTARINI_YAZ';
+
+  // Yapay zeka — Hugging Face (Manken Üretimi İçin - Stable Diffusion 2.1)
+  static const String huggingFaceToken = 'BURAYA_HUGGINGFACE_TOKENINI_YAZ';
 }

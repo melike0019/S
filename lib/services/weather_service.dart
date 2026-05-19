@@ -8,6 +8,11 @@ import '../models/weather_model.dart';
 class WeatherService {
   /// Konuma göre güncel hava durumunu getirir.
   Future<WeatherModel> fetchWeather() async {
+    if (ApiConfig.weatherApiKey.isEmpty) {
+      throw 'Hava durumu API anahtarı eksik.\n'
+          'Uygulamayı run_config.bat (Windows) veya run_config.sh ile başlat,\n'
+          'ya da VS Code launch.json içindeki WEATHER_API_KEY değerini kontrol et.';
+    }
     final position = await _getLocation();
     final url = Uri.parse(
       '${ApiConfig.weatherBaseUrl}/weather'

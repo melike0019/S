@@ -61,6 +61,25 @@ class PlannerProvider extends ChangeNotifier {
     }
   }
 
+  /// Pazartesi vb. günlere atanmış kombinleri sürükle-bırak ile takas veya taşı.
+  Future<void> swapDaysOutfits({
+    required String userId,
+    required String fromDayKey,
+    required String toDayKey,
+  }) async {
+    try {
+      await _service.swapOrMoveBetweenDays(
+        userId: userId,
+        date: _focusDate,
+        fromDayKey: fromDayKey,
+        toDayKey: toDayKey,
+      );
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
   void changeWeek(String userId, int offsetWeeks) {
     final newDate = _focusDate.add(Duration(days: offsetWeeks * 7));
     watchWeek(userId, newDate);

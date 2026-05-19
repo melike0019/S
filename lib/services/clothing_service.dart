@@ -24,6 +24,11 @@ class ClothingService {
     required List<String> seasons,
     String? brand,
     String? notes,
+    String? fit,
+    String? fabric,
+    String? pattern,
+    String? style,
+    String? subCategory,
   }) async {
     try {
       // Önce fotoğrafı Storage'a yükle, URL al
@@ -42,6 +47,11 @@ class ClothingService {
         seasons: seasons,
         brand: brand,
         notes: notes,
+        fit: fit,
+        fabric: fabric,
+        pattern: pattern,
+        style: style,
+        subCategory: subCategory,
         createdAt: DateTime.now(),
       );
 
@@ -58,6 +68,11 @@ class ClothingService {
         seasons: seasons,
         brand: brand,
         notes: notes,
+        fit: fit,
+        fabric: fabric,
+        pattern: pattern,
+        style: style,
+        subCategory: subCategory,
         createdAt: item.createdAt,
       );
     } catch (e) {
@@ -107,6 +122,11 @@ class ClothingService {
     List<String>? seasons,
     String? brand,
     String? notes,
+    String? fit,
+    String? fabric,
+    String? pattern,
+    String? style,
+    String? subCategory,
   }) async {
     try {
       final Map<String, dynamic> updates = {};
@@ -116,6 +136,11 @@ class ClothingService {
       if (seasons != null) updates['seasons'] = seasons;
       if (brand != null) updates['brand'] = brand;
       if (notes != null) updates['notes'] = notes;
+      if (fit != null) updates['fit'] = fit;
+      if (fabric != null) updates['fabric'] = fabric;
+      if (pattern != null) updates['pattern'] = pattern;
+      if (style != null) updates['style'] = style;
+      if (subCategory != null) updates['subCategory'] = subCategory;
 
       if (updates.isEmpty) return;
 

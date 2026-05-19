@@ -71,75 +71,125 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgStart,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 18, color: AppTheme.textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Giyim Geçmişi',
-          style: GoogleFonts.playfairDisplay(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark),
-        ),
-      ),
       body: Column(
         children: [
-          // ── Ay Navigasyonu ────────────────────────────────────────
+          // ── Premium Header ────────────────────────────────────────
           Container(
-            color: Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _prevMonth,
-                  icon: const Icon(Icons.chevron_left_rounded,
-                      color: AppTheme.textDark),
-                  visualDensity: VisualDensity.compact,
-                ),
-                Expanded(
-                  child: Text(
-                    '${_monthNames[_focusMonth.month]} ${_focusMonth.year}',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textDark),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.deepRose, AppTheme.darkRose,
+                    AppTheme.primaryRose, Color(0xFFD4809A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: AppTheme.softShadow,
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 36, height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.arrow_back_ios_new_rounded,
+                                size: 16, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSM),
+                          ),
+                          child: const Icon(Icons.history_rounded,
+                              color: Colors.white, size: 16),
+                        ),
+                        const SizedBox(width: 10),
+                        Text('Giyim Geçmişi',
+                            style: GoogleFonts.playfairDisplay(
+                                fontSize: 20, fontWeight: FontWeight.w700,
+                                color: Colors.white)),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: _nextMonth,
-                  icon: const Icon(Icons.chevron_right_rounded,
-                      color: AppTheme.textDark),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
+                  // Ay Navigasyonu
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                      ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _prevMonth,
+                            child: Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.chevron_left_rounded,
+                                  color: Colors.white),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${_monthNames[_focusMonth.month]} ${_focusMonth.year}',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 14, fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _nextMonth,
+                            child: Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.chevron_right_rounded,
+                                  color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // İstatistik şeridi
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Row(
+                      children: [
+                        _StatChip(
+                            icon: Icons.event_available_outlined,
+                            label: '${monthEntries.length} kez giyildi'),
+                        const SizedBox(width: 10),
+                        _StatChip(
+                            icon: Icons.checkroom_outlined,
+                            label: '${monthEntries.map((e) => e.outfitId).toSet().length} farklı kombin'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const Divider(height: 1, color: AppTheme.dividerColor),
-
-          // ── İstatistik Şeridi ─────────────────────────────────────
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-            child: Row(
-              children: [
-                _StatChip(
-                    icon: Icons.event_available_outlined,
-                    label: '${monthEntries.length} kez giyildi'),
-                const SizedBox(width: 10),
-                _StatChip(
-                    icon: Icons.checkroom_outlined,
-                    label:
-                        '${monthEntries.map((e) => e.outfitId).toSet().length} farklı kombin'),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: AppTheme.dividerColor),
 
           // ── Liste ─────────────────────────────────────────────────
           if (historyProv.isLoading && monthEntries.isEmpty)
@@ -181,20 +231,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
         ],
       ),
-      // Kayıt ekleme butonu
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showLogSheet(
+      floatingActionButton: GestureDetector(
+        onTap: () => _showLogSheet(
           context,
           outfits: outfitProv.outfits,
           allItems: clothingProv.items,
         ),
-        backgroundColor: AppTheme.primaryRose,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: Text('Kaydet',
-            style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.white)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            boxShadow: AppTheme.mediumShadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text('Kaydet',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13, fontWeight: FontWeight.w600,
+                      color: Colors.white)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -369,8 +430,9 @@ class _HistoryCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
           border: Border.all(color: AppTheme.dividerColor),
+          boxShadow: AppTheme.softShadow,
         ),
         child: Row(
           children: [
@@ -684,30 +746,44 @@ class _LogSheetState extends State<_LogSheet> {
                     () => _occasion = v == _occasion ? null : v)),
             const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _selectedOutfitId == null || _saving
-                    ? null
-                    : () async {
-                        setState(() => _saving = true);
-                        await widget.onSave(
-                          _selectedOutfitId!,
-                          _selectedDate,
-                          _mood,
-                          _occasion,
-                        );
-                      },
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text('Kaydet',
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
+            GestureDetector(
+              onTap: _selectedOutfitId == null || _saving
+                  ? null
+                  : () async {
+                      setState(() => _saving = true);
+                      await widget.onSave(
+                        _selectedOutfitId!,
+                        _selectedDate,
+                        _mood,
+                        _occasion,
+                      );
+                    },
+              child: Container(
+                width: double.infinity,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: (_selectedOutfitId == null || _saving)
+                      ? null
+                      : AppTheme.primaryGradient,
+                  color: (_selectedOutfitId == null || _saving)
+                      ? AppTheme.textFaint
+                      : null,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                  boxShadow: (_selectedOutfitId == null || _saving)
+                      ? null
+                      : AppTheme.mediumShadow,
+                ),
+                child: Center(
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : Text('Kaydet',
+                          style: GoogleFonts.poppins(
+                              fontSize: 15, fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                ),
               ),
             ),
           ],
@@ -772,21 +848,22 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.lightRose.withAlpha(80),
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppTheme.primaryRose),
+          Icon(icon, size: 13, color: Colors.white),
           const SizedBox(width: 5),
           Text(label,
               style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.textMedium)),
+                  color: Colors.white)),
         ],
       ),
     );

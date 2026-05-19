@@ -15,6 +15,7 @@ import '../../providers/outfit_provider.dart';
 import '../../providers/planner_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/badge_service.dart';
+import '../../utils/badge_checker.dart';
 import '../../services/notification_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
@@ -31,6 +32,15 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _uploadingPhoto = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Profil sekmesi açılınca da rozet kontrolü yap
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => checkBadgesAndNotify(context),
+    );
+  }
+
   // ── Profil fotoğrafı ──────────────────────────────────────────────
   Future<void> _pickAndUploadPhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -40,8 +50,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (source == null) return;
 
-    final picked = await ImagePicker()
-        .pickImage(source: source, imageQuality: 85);
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 85,
+    );
     if (picked == null || !mounted) return;
 
     setState(() => _uploadingPhoto = true);
@@ -54,11 +66,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageFile: File(picked.path),
       );
       if (!mounted) return;
-      await context
-          .read<UserProvider>()
-          .updateProfile(userId: userId, photoURL: url);
+      await context.read<UserProvider>().updateProfile(
+        userId: userId,
+        photoURL: url,
+      );
       if (!mounted) return;
       await context.read<AuthProvider>().refreshUser();
+      if (mounted) await checkBadgesAndNotify(context); // photo_star rozeti
     } catch (e) {
       if (mounted) {
         _snack('Fotoğraf yüklenemedi: $e');
@@ -68,34 +82,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ── Profil bilgileri (ad) ─────────────────────────────────────────
-  Future<void> _editDisplayName() async {
+  // ── Profil bilgileri (ad, e-posta) ───────────────────────────────
+  Future<void> _editProfileInfo() async {
     final auth = context.read<AuthProvider>();
-    final ctrl = TextEditingController(
-        text: auth.user?.displayName ?? '');
-    final saved = await showModalBottomSheet<String>(
+    final userProv = context.read<UserProvider>();
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _TextFieldSheet(
-        title: 'Profil Bilgileri',
-        label: 'Ad Soyad',
-        controller: ctrl,
-        hint: 'Adın nasıl görünsün?',
+      builder: (_) => _ProfileInfoSheet(
+        initialName: auth.user?.displayName ?? '',
+        email: auth.user?.email ?? '',
+        onSave: (name) async {
+          final userId = auth.user?.id;
+          if (userId == null) return;
+          if (name != auth.user?.displayName) {
+            await userProv.updateProfile(userId: userId, displayName: name);
+            if (mounted) await auth.refreshUser();
+          }
+          if (mounted) _snack('Profil bilgilerin güncellendi.');
+        },
       ),
     );
-    if (saved == null || !mounted) return;
-    final userId = auth.user?.id;
-    if (userId == null) return;
-    final ok = await context
-        .read<UserProvider>()
-        .updateProfile(userId: userId, displayName: saved);
-    if (!mounted) return;
-    if (ok) {
-      await context.read<AuthProvider>().refreshUser();
-    } else {
-      _snack('Güncellenemedi.');
-    }
   }
 
   // ── Şifre değiştir (reset e-postası) ─────────────────────────────
@@ -107,47 +115,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        title: Text('Şifre Sıfırla',
-            style: GoogleFonts.playfairDisplay(
-                fontSize: 18, fontWeight: FontWeight.w700)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Şifre Sıfırla',
+          style: GoogleFonts.playfairDisplay(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           '$email adresine şifre sıfırlama bağlantısı gönderilecek.',
           style: GoogleFonts.poppins(
-              fontSize: 13, color: AppTheme.textMedium, height: 1.5),
+            fontSize: 13,
+            color: AppTheme.textMedium,
+            height: 1.5,
+          ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('İptal',
-                  style:
-                      GoogleFonts.poppins(color: AppTheme.textLight))),
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textLight),
+            ),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('Gönder',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.primaryRose,
-                      fontWeight: FontWeight.w600))),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Gönder',
+              style: GoogleFonts.poppins(
+                color: AppTheme.primaryRose,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    final ok = await context
-        .read<AuthProvider>()
-        .resetPassword(email);
+    final ok = await context.read<AuthProvider>().resetPassword(email);
     if (!mounted) return;
-    _snack(ok
-        ? 'Sıfırlama bağlantısı e-postana gönderildi.'
-        : 'Gönderilemedi. Daha sonra tekrar dene.');
+    _snack(
+      ok
+          ? 'Sıfırlama bağlantısı e-postana gönderildi.'
+          : 'Gönderilemedi. Daha sonra tekrar dene.',
+    );
   }
 
   // ── Stil tercihleri ───────────────────────────────────────────────
   Future<void> _editStyleProfile() async {
     final auth = context.read<AuthProvider>();
-    final current =
-        context.read<UserProvider>().styleProfile ?? '';
+    final current = context.read<UserProvider>().styleProfile ?? '';
     final selected = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -156,16 +175,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (selected == null || !mounted) return;
     final userId = auth.user?.id;
     if (userId == null) return;
-    await context
-        .read<UserProvider>()
-        .updateProfile(userId: userId, styleProfile: selected);
-    if (mounted) _snack('Stil tercihin güncellendi.');
+    await context.read<UserProvider>().updateProfile(
+      userId: userId,
+      styleProfile: selected,
+    );
+    if (!mounted) return;
+    _snack('Stil tercihin güncellendi.');
+    await checkBadgesAndNotify(context); // style_queen rozeti
   }
 
   // ── Bildirimler ───────────────────────────────────────────────────
   Future<void> _showNotifications() async {
-    final granted =
-        await NotificationService().requestPermission();
+    final granted = await NotificationService().requestPermission();
     if (!mounted) return;
     if (!granted) {
       _snack('Bildirim izni verilmedi. Ayarlardan etkinleştir.');
@@ -187,8 +208,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
+  String _profileInfoSubtitle(AuthProvider auth, UserProvider userProv) {
+    final n = auth.user?.displayName ?? '';
+    return n.isNotEmpty ? n : 'Düzenle';
+  }
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   @override
   Widget build(BuildContext context) {
@@ -197,36 +223,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final outfits = context.watch<OutfitProvider>();
     final userProv = context.watch<UserProvider>();
     final planner = context.watch<PlannerProvider>();
-    final history = context.watch<HistoryProvider>();
+    context.watch<HistoryProvider>();
 
-    // Her veri değişiminde rozet kontrolü yap
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final userId = auth.user?.id;
-      if (userId == null || userProv.user == null) return;
-      final messenger = ScaffoldMessenger.of(context);
-      final aiCount = outfits.outfits.where((o) => o.source == 'ai').length;
-      final newBadges = await userProv.checkAndAwardBadges(
-        userId: userId,
-        clothingCount: clothing.items.length,
-        outfitCount: outfits.outfits.length,
-        aiOutfitCount: aiCount,
-        historyCount: history.entries.length,
-        plannedDays: planner.filledDaysCount,
-      );
-      if (newBadges.isNotEmpty) {
-        for (final b in newBadges) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('Yeni rozet kazandın: $b'),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      }
-    });
-    final name =
-        auth.user?.displayName ?? auth.user?.email ?? 'Kullanıcı';
+    final name = auth.user?.displayName ?? auth.user?.email ?? 'Kullanıcı';
     final email = auth.user?.email ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     final photoURL = auth.user?.photoURL;
@@ -238,24 +237,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         slivers: [
           // ─── Header ─────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 210,
             pinned: true,
-            backgroundColor: Colors.white,
+            backgroundColor: AppTheme.bgStart,
             elevation: 0,
-            title: Text('Profil',
-                style: GoogleFonts.playfairDisplay(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textDark)),
+            scrolledUnderElevation: 0,
+            title: Text(
+              'Profil',
+              style: GoogleFonts.playfairDisplay(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppTheme.darkRose,
-                      AppTheme.primaryRose,
-                      Color(0xFFE8A0BB)
+                      Color(0xFFFFF8EF),
+                      Color(0xFFF8D8E6),
+                      Color(0xFFEDE2F8),
+                      Color(0xFFE7F0E8),
                     ],
+                    stops: [0.0, 0.38, 0.72, 1.0],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -266,88 +271,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       const SizedBox(height: 40),
                       GestureDetector(
-                        onTap: _uploadingPhoto
-                            ? null
-                            : _pickAndUploadPhoto,
-                        child: Stack(children: [
-                          Container(
-                            width: 84,
-                            height: 84,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withAlpha(30),
-                              border: Border.all(
-                                  color: Colors.white.withAlpha(150),
-                                  width: 2),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: _uploadingPhoto
-                                ? const Center(
-                                    child: CircularProgressIndicator(
+                        onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 88,
+                              height: 88,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.62),
+                                border: Border.all(
+                                  color: AppTheme.primaryRose.withValues(
+                                    alpha: 0.34,
+                                  ),
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryRose.withValues(
+                                      alpha: 0.16,
+                                    ),
+                                    blurRadius: 16,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: _uploadingPhoto
+                                  ? const Center(
+                                      child: CircularProgressIndicator(
                                         color: Colors.white,
-                                        strokeWidth: 2))
-                                : photoURL != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: photoURL,
-                                        fit: BoxFit.cover,
-                                        width: 84,
-                                        height: 84,
-                                        placeholder: (_, _) => Center(
-                                            child: Text(initial,
-                                                style: GoogleFonts
-                                                    .playfairDisplay(
-                                                  fontSize: 36,
-                                                  fontWeight:
-                                                      FontWeight.w700,
-                                                  color: Colors.white,
-                                                ))),
-                                        errorWidget: (_, _, _) => Center(
-                                            child: Text(initial,
-                                                style: GoogleFonts
-                                                    .playfairDisplay(
-                                                  fontSize: 36,
-                                                  fontWeight:
-                                                      FontWeight.w700,
-                                                  color: Colors.white,
-                                                ))),
-                                      )
-                                    : Center(
-                                        child: Text(initial,
-                                            style: GoogleFonts
-                                                .playfairDisplay(
-                                              fontSize: 36,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                            ))),
-                          ),
-                          if (!_uploadingPhoto)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 26,
-                                height: 26,
-                                decoration: const BoxDecoration(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : photoURL != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: photoURL,
+                                      fit: BoxFit.cover,
+                                      width: 84,
+                                      height: 84,
+                                      placeholder: (_, _) => Center(
+                                        child: Text(
+                                          initial,
+                                          style: GoogleFonts.playfairDisplay(
+                                            fontSize: 36,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.primaryRose,
+                                          ),
+                                        ),
+                                      ),
+                                      errorWidget: (_, _, _) => Center(
+                                        child: Text(
+                                          initial,
+                                          style: GoogleFonts.playfairDisplay(
+                                            fontSize: 36,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.primaryRose,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        initial,
+                                        style: GoogleFonts.playfairDisplay(
+                                          fontSize: 36,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.primaryRose,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                            if (!_uploadingPhoto)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 26,
+                                  height: 26,
+                                  decoration: const BoxDecoration(
                                     color: Colors.white,
-                                    shape: BoxShape.circle),
-                                child: const Icon(
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
                                     Icons.camera_alt_rounded,
                                     size: 14,
-                                    color: AppTheme.primaryRose),
+                                    color: AppTheme.primaryRose,
+                                  ),
+                                ),
                               ),
-                            ),
-                        ]),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Text(name,
-                          style: GoogleFonts.playfairDisplay(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                      Text(email,
-                          style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.white.withAlpha(180))),
+                      Text(
+                        name,
+                        style: GoogleFonts.playfairDisplay(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textDark,
+                        ),
+                      ),
+                      Text(
+                        email,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.textMedium,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -378,22 +409,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.bar_chart_rounded,
                   label: 'İstatistikler',
                   subtitle: 'Gardırop & kombin analitiği',
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(
-                          builder: (_) => const StatsScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StatsScreen()),
+                  ),
                 ),
                 _SettingTile(
                   icon: Icons.history_rounded,
                   label: 'Giyim Geçmişi',
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(
-                          builder: (_) => const HistoryScreen())),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                  ),
                 ),
                 _SettingTile(
                   icon: Icons.person_outline_rounded,
                   label: 'Profil Bilgileri',
-                  subtitle: name,
-                  onTap: _editDisplayName,
+                  subtitle: _profileInfoSubtitle(auth, userProv),
+                  onTap: _editProfileInfo,
                 ),
                 _SettingTile(
                   icon: Icons.lock_outline_rounded,
@@ -430,15 +463,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 GestureDetector(
                   onTap: auth.isLoading
                       ? null
-                      : () =>
-                          context.read<AuthProvider>().signOut(),
+                      : () => context.read<AuthProvider>().signOut(),
                   child: Container(
                     height: 52,
                     decoration: BoxDecoration(
                       color: const Color(0xFFFCE4EC),
                       borderRadius: BorderRadius.circular(16),
-                      border:
-                          Border.all(color: const Color(0xFFFFCDD2)),
+                      border: Border.all(color: const Color(0xFFFFCDD2)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -448,18 +479,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppTheme.errorRed),
+                              strokeWidth: 2,
+                              color: AppTheme.errorRed,
+                            ),
                           )
                         else ...[
-                          const Icon(Icons.logout_rounded,
-                              color: AppTheme.errorRed, size: 18),
+                          const Icon(
+                            Icons.logout_rounded,
+                            color: AppTheme.errorRed,
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
-                          Text('Çıkış Yap',
-                              style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.errorRed)),
+                          Text(
+                            'Çıkış Yap',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.errorRed,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -490,13 +528,16 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-            child:
-                _StatCard(value: '$clothingCount', label: 'Kıyafet')),
+          child: _StatCard(value: '$clothingCount', label: 'Kıyafet'),
+        ),
         const SizedBox(width: 12),
         Expanded(
-            child: _StatCard(value: '$outfitCount', label: 'Kombin')),
+          child: _StatCard(value: '$outfitCount', label: 'Kombin'),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _StatCard(value: '$plannedDays/7', label: 'Ajanda')),
+        Expanded(
+          child: _StatCard(value: '$plannedDays/7', label: 'Ajanda'),
+        ),
       ],
     );
   }
@@ -510,23 +551,46 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        gradient: const LinearGradient(
+          colors: [Colors.white, AppTheme.bgStart],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        border: Border.all(color: AppTheme.dividerColor.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryRose.withValues(alpha: 0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Text(value,
+          ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (b) => AppTheme.primaryGradient.createShader(b),
+            child: Text(
+              value,
               style: GoogleFonts.playfairDisplay(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryRose)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: GoogleFonts.poppins(
-                  fontSize: 11, color: AppTheme.textMedium)),
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textMedium,
+            ),
+          ),
         ],
       ),
     );
@@ -540,12 +604,15 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text.toUpperCase(),
-        style: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textLight,
-            letterSpacing: 1));
+    return Text(
+      text.toUpperCase(),
+      style: GoogleFonts.poppins(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.textLight,
+        letterSpacing: 1,
+      ),
+    );
   }
 }
 
@@ -555,7 +622,6 @@ class _SettingTile extends StatelessWidget {
   final String label;
   final String? subtitle;
   final VoidCallback onTap;
-
   const _SettingTile({
     required this.icon,
     required this.label,
@@ -569,23 +635,31 @@ class _SettingTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.dividerColor),
+          color: Colors.white.withValues(alpha: 0.84),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.74)),
+          boxShadow: AppTheme.softShadow,
         ),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: AppTheme.lightRose,
-                borderRadius: BorderRadius.circular(10),
+                gradient: const LinearGradient(
+                  colors: [AppTheme.lightRose, Color(0xFFF8E0EE)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
               ),
-              child:
-                  Icon(icon, size: 16, color: AppTheme.primaryRose),
+              child: Icon(
+                icon,
+                size: 18,
+                color: AppTheme.primaryRose,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -593,23 +667,32 @@ class _SettingTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(label,
-                      style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.textDark)),
+                  Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
                   if (subtitle != null)
-                    Text(subtitle!,
-                        style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: AppTheme.textLight),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
+                    Text(
+                      subtitle!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppTheme.textLight,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppTheme.textLight, size: 18),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.textLight,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -643,61 +726,174 @@ class _PhotoSourceSheet extends StatelessWidget {
 }
 
 // ─── Metin Düzenleme Sheet ────────────────────────────────────────────────────
-class _TextFieldSheet extends StatelessWidget {
-  final String title;
-  final String label;
-  final String hint;
-  final TextEditingController controller;
+// ─── Profil Bilgileri Sheet ───────────────────────────────────────────────────
+class _ProfileInfoSheet extends StatefulWidget {
+  final String initialName;
+  final String email;
+  final Future<void> Function(String name) onSave;
 
-  const _TextFieldSheet({
-    required this.title,
-    required this.label,
-    required this.hint,
-    required this.controller,
+  const _ProfileInfoSheet({
+    required this.initialName,
+    required this.email,
+    required this.onSave,
   });
+
+  @override
+  State<_ProfileInfoSheet> createState() => _ProfileInfoSheetState();
+}
+
+class _ProfileInfoSheetState extends State<_ProfileInfoSheet> {
+  late final TextEditingController _nameCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return _BaseSheet(
-      title: title,
+      title: 'Profil Bilgileri',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textMedium)),
-          const SizedBox(height: 8),
+          // Ad Soyad
+          _label('Ad Soyad'),
+          const SizedBox(height: 6),
           TextField(
-            controller: controller,
-            autofocus: true,
+            controller: _nameCtrl,
             textInputAction: TextInputAction.done,
             style: GoogleFonts.poppins(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: GoogleFonts.poppins(
-                  fontSize: 13, color: AppTheme.textLight),
-            ),
+            decoration: _inputDeco('Adın nasıl görünsün?'),
           ),
           const SizedBox(height: 16),
-          SizedBox(
+
+          // E-posta (salt okunur, bilgi amaçlı)
+          _label('E-posta'),
+          const SizedBox(height: 6),
+          Container(
             width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                final val = controller.text.trim();
-                if (val.isNotEmpty) Navigator.pop(context, val);
-              },
-              child: Text('Kaydet',
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+            decoration: BoxDecoration(
+              color: AppTheme.bgStart,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.dividerColor),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.email.isNotEmpty ? widget.email : '—',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: AppTheme.textMedium,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: AppTheme.textLight,
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 2),
+            child: Text(
+              'E-posta değiştirmek için "Şifre Değiştir" bölümünü kullan.',
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                color: AppTheme.textLight,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Kaydet butonu
+          GestureDetector(
+            onTap: _saving
+                ? null
+                : () async {
+                    final name = _nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    setState(() => _saving = true);
+                    final nav = Navigator.of(context);
+                    await widget.onSave(name);
+                    if (!mounted) return;
+                    nav.pop();
+                  },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: _saving ? null : AppTheme.primaryGradient,
+                color: _saving ? AppTheme.dividerColor : null,
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                boxShadow: _saving ? null : AppTheme.softShadow,
+              ),
+              child: Center(
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.primaryRose,
+                        ),
+                      )
+                    : Text(
+                        'Kaydet',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _label(String text) => Text(
+    text,
+    style: GoogleFonts.poppins(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.textMedium,
+    ),
+  );
+
+  InputDecoration _inputDeco(String hint) => InputDecoration(
+    hintText: hint,
+    hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppTheme.textLight),
+    filled: true,
+    fillColor: AppTheme.bgStart,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppTheme.dividerColor),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppTheme.dividerColor),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppTheme.primaryRose),
+    ),
+  );
 }
 
 // ─── Stil Tercihi Sheet ───────────────────────────────────────────────────────
@@ -746,35 +942,32 @@ class _StylePickerSheetState extends State<_StylePickerSheet> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: sel
                         ? AppTheme.primaryRose.withAlpha(15)
                         : AppTheme.bgStart,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: sel
-                          ? AppTheme.primaryRose
-                          : AppTheme.dividerColor,
+                      color: sel ? AppTheme.primaryRose : AppTheme.dividerColor,
                       width: sel ? 1.5 : 1,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(emoji,
-                          style: const TextStyle(fontSize: 16)),
+                      Text(emoji, style: const TextStyle(fontSize: 16)),
                       const SizedBox(width: 6),
-                      Text(label,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: sel
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: sel
-                                ? AppTheme.primaryRose
-                                : AppTheme.textDark,
-                          )),
+                      Text(
+                        label,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                          color: sel ? AppTheme.primaryRose : AppTheme.textDark,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -789,9 +982,13 @@ class _StylePickerSheetState extends State<_StylePickerSheet> {
               onPressed: _selected.isEmpty
                   ? null
                   : () => Navigator.pop(context, _selected),
-              child: Text('Kaydet',
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
+              child: Text(
+                'Kaydet',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
@@ -806,7 +1003,9 @@ class _HelpSheet extends StatelessWidget {
 
   Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -819,7 +1018,8 @@ class _HelpSheet extends StatelessWidget {
             icon: Icons.email_outlined,
             title: 'E-posta Desteği',
             subtitle: 'destek@stilya.app',
-            onTap: () => _launch('mailto:destek@stilya.app?subject=Stilya%20Destek'),
+            onTap: () =>
+                _launch('mailto:destek@stilya.app?subject=Stilya%20Destek'),
           ),
           const SizedBox(height: 8),
           _HelpItem(
@@ -845,7 +1045,9 @@ class _HelpSheet extends StatelessWidget {
             icon: Icons.star_outline_rounded,
             title: 'Uygulamayı Değerlendir',
             subtitle: 'Google Play',
-            onTap: () => _launch('https://play.google.com/store/apps/details?id=com.stilya.app'),
+            onTap: () => _launch(
+              'https://play.google.com/store/apps/details?id=com.stilya.app',
+            ),
           ),
         ],
       ),
@@ -871,8 +1073,7 @@ class _HelpItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AppTheme.bgStart,
           borderRadius: BorderRadius.circular(14),
@@ -894,19 +1095,29 @@ class _HelpItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textDark)),
-                  Text(subtitle,
-                      style: GoogleFonts.poppins(
-                          fontSize: 11, color: AppTheme.textLight)),
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppTheme.textLight,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppTheme.textLight, size: 16),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.textLight,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -924,15 +1135,17 @@ class _BaseSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        gradient: AppTheme.backgroundGradient,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: AppTheme.strongShadow,
       ),
       padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.of(context).viewInsets.bottom + 32),
+        20,
+        16,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -943,16 +1156,41 @@ class _BaseSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: AppTheme.dividerColor,
-                    borderRadius: BorderRadius.circular(2)),
+                  color: AppTheme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            Text(title,
-                style: GoogleFonts.playfairDisplay(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textDark)),
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                    boxShadow: AppTheme.softShadow,
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             child,
           ],
@@ -968,16 +1206,18 @@ class _SheetTile extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _SheetTile(
-      {required this.icon, required this.label, required this.onTap});
+  const _SheetTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: AppTheme.bgStart,
           borderRadius: BorderRadius.circular(14),
@@ -992,15 +1232,17 @@ class _SheetTile extends StatelessWidget {
                 color: AppTheme.lightRose,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child:
-                  Icon(icon, size: 18, color: AppTheme.primaryRose),
+              child: Icon(icon, size: 18, color: AppTheme.primaryRose),
             ),
             const SizedBox(width: 12),
-            Text(label,
-                style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textDark)),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textDark,
+              ),
+            ),
           ],
         ),
       ),
@@ -1020,11 +1262,16 @@ class _XpBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        gradient: const LinearGradient(
+          colors: [Colors.white, AppTheme.bgStart],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        border: Border.all(color: AppTheme.dividerColor.withValues(alpha: 0.6)),
+        boxShadow: AppTheme.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1042,9 +1289,10 @@ class _XpBar extends StatelessWidget {
                   child: Text(
                     '$_level',
                     style: GoogleFonts.playfairDisplay(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -1059,14 +1307,17 @@ class _XpBar extends StatelessWidget {
                         Text(
                           'Seviye $_level',
                           style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textDark),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textDark,
+                          ),
                         ),
                         Text(
                           '$xp XP',
                           style: GoogleFonts.poppins(
-                              fontSize: 11, color: AppTheme.primaryRose),
+                            fontSize: 11,
+                            color: AppTheme.primaryRose,
+                          ),
                         ),
                       ],
                     ),
@@ -1078,7 +1329,8 @@ class _XpBar extends StatelessWidget {
                         minHeight: 6,
                         backgroundColor: AppTheme.bgEnd,
                         valueColor: const AlwaysStoppedAnimation(
-                            AppTheme.primaryRose),
+                          AppTheme.primaryRose,
+                        ),
                       ),
                     ),
                   ],
@@ -1111,10 +1363,11 @@ class _BadgeSection extends StatelessWidget {
             Text(
               'ROZETLER'.toUpperCase(),
               style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textLight,
-                  letterSpacing: 1),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textLight,
+                letterSpacing: 1,
+              ),
             ),
             const SizedBox(width: 8),
             Container(
@@ -1126,9 +1379,10 @@ class _BadgeSection extends StatelessWidget {
               child: Text(
                 '${earned.length}/${BadgeService.all.length}',
                 style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryRose),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryRose,
+                ),
               ),
             ),
           ],
@@ -1169,53 +1423,66 @@ class _BadgeChip extends StatelessWidget {
         context: context,
         builder: (_) => AlertDialog(
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20)),
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              Text(badge.emoji,
-                  style: const TextStyle(fontSize: 24)),
+              Text(badge.emoji, style: const TextStyle(fontSize: 24)),
               const SizedBox(width: 10),
-              Text(badge.title,
-                  style: GoogleFonts.playfairDisplay(
-                      fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(
+                badge.title,
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(badge.description,
-                  style: GoogleFonts.poppins(
-                      fontSize: 13, color: AppTheme.textMedium)),
+              Text(
+                badge.description,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppTheme.textMedium,
+                ),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.star_rounded,
-                      size: 14, color: AppTheme.gold),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 14,
+                    color: AppTheme.gold,
+                  ),
                   const SizedBox(width: 4),
-                  Text('+${badge.xpReward} XP',
-                      style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.gold)),
+                  Text(
+                    '+${badge.xpReward} XP',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.gold,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Icon(
                     isEarned
                         ? Icons.check_circle_rounded
                         : Icons.lock_outline_rounded,
                     size: 14,
-                    color: isEarned
-                        ? AppTheme.primaryRose
-                        : AppTheme.textLight,
+                    color: isEarned ? AppTheme.primaryRose : AppTheme.textLight,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     isEarned ? 'Kazanıldı' : 'Kilitli',
                     style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: isEarned
-                            ? AppTheme.primaryRose
-                            : AppTheme.textLight),
+                      fontSize: 12,
+                      color: isEarned
+                          ? AppTheme.primaryRose
+                          : AppTheme.textLight,
+                    ),
                   ),
                 ],
               ),
@@ -1224,10 +1491,13 @@ class _BadgeChip extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Tamam',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.primaryRose,
-                      fontWeight: FontWeight.w600)),
+              child: Text(
+                'Tamam',
+                style: GoogleFonts.poppins(
+                  color: AppTheme.primaryRose,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
@@ -1236,9 +1506,7 @@ class _BadgeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: isEarned
-              ? AppTheme.primaryRose.withAlpha(15)
-              : AppTheme.bgEnd,
+          color: isEarned ? AppTheme.primaryRose.withAlpha(15) : AppTheme.bgEnd,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isEarned
@@ -1252,8 +1520,9 @@ class _BadgeChip extends StatelessWidget {
             Text(
               isEarned ? badge.emoji : '🔒',
               style: TextStyle(
-                  fontSize: 16,
-                  color: isEarned ? null : Colors.black26),
+                fontSize: 16,
+                color: isEarned ? null : Colors.black26,
+              ),
             ),
             const SizedBox(width: 6),
             Text(
@@ -1261,9 +1530,7 @@ class _BadgeChip extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 fontWeight: isEarned ? FontWeight.w600 : FontWeight.w400,
-                color: isEarned
-                    ? AppTheme.primaryRose
-                    : AppTheme.textLight,
+                color: isEarned ? AppTheme.primaryRose : AppTheme.textLight,
               ),
             ),
           ],
@@ -1309,8 +1576,8 @@ class _NotificationSheetState extends State<_NotificationSheet> {
       title: 'Bildirimler',
       child: _loading
           ? const Center(
-              child: CircularProgressIndicator(
-                  color: AppTheme.primaryRose))
+              child: CircularProgressIndicator(color: AppTheme.primaryRose),
+            )
           : Column(
               children: [
                 _NotifToggle(
@@ -1320,8 +1587,7 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                   value: _daily,
                   onChanged: (v) async {
                     setState(() => _daily = v);
-                    await NotificationService()
-                        .scheduleDailyReminder(v);
+                    await NotificationService().scheduleDailyReminder(v);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -1332,8 +1598,7 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                   value: _weekly,
                   onChanged: (v) async {
                     setState(() => _weekly = v);
-                    await NotificationService()
-                        .scheduleWeeklyReminder(v);
+                    await NotificationService().scheduleWeeklyReminder(v);
                   },
                 ),
                 const SizedBox(height: 16),
@@ -1351,7 +1616,9 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                     child: Text(
                       'Tüm bildirimleri kapat',
                       style: GoogleFonts.poppins(
-                          fontSize: 12, color: AppTheme.textLight),
+                        fontSize: 12,
+                        color: AppTheme.textLight,
+                      ),
                     ),
                   ),
               ],
@@ -1380,13 +1647,12 @@ class _NotifToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: value
-            ? AppTheme.primaryRose.withAlpha(10)
-            : AppTheme.bgStart,
+        color: value ? AppTheme.primaryRose.withAlpha(10) : AppTheme.bgStart,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color:
-              value ? AppTheme.primaryRose.withAlpha(80) : AppTheme.dividerColor,
+          color: value
+              ? AppTheme.primaryRose.withAlpha(80)
+              : AppTheme.dividerColor,
         ),
       ),
       child: Row(
@@ -1395,26 +1661,37 @@ class _NotifToggle extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: value ? AppTheme.primaryRose.withAlpha(20) : AppTheme.lightRose,
+              color: value
+                  ? AppTheme.primaryRose.withAlpha(20)
+                  : AppTheme.lightRose,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon,
-                size: 17,
-                color: value ? AppTheme.primaryRose : AppTheme.textLight),
+            child: Icon(
+              icon,
+              size: 17,
+              color: value ? AppTheme.primaryRose : AppTheme.textLight,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textDark)),
-                Text(subtitle,
-                    style: GoogleFonts.poppins(
-                        fontSize: 11, color: AppTheme.textLight)),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AppTheme.textLight,
+                  ),
+                ),
               ],
             ),
           ),
