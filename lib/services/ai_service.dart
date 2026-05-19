@@ -174,17 +174,17 @@ class ChatMessage {
 // AI Servisi
 // ---------------------------------------------------------------------------
 class AIService {
-  // ── Model Seçimi ──
-  // Kombin önerisi & chat → Groq (deepseek-r1-distill-llama-70b)
-  //   → En az halüsinasyon, Türkçe JSON en tutarlı, hız üstün
-  // Kıyafet analizi      → Gemini 2.5 Flash
-  //   → Görsel anlama zorunlu, tek seferlik istek
+// ── Model Seçimi ──
+  // Kombin, kör nokta & chat → Groq (llama-3.3-70b-versatile)
+  //   → Hızlı, Türkçe JSON tutarlı, halüsinasyon koruyucu filtrelerle güvenli
+  // Kıyafet görsel analizi   → Gemini (gemini-2.5-flash-lite)
+  //   → Multimodal zorunlu, deterministik (temp=0.1), tek seferlik istek
  
   static const String _groqEndpoint =
       '${ApiConfig.groqBaseUrl}/chat/completions';
  
   // Kombin önerisi için deepseek, chat için llama kullan
-  static const String _outfitModel = 'deepseek-r1-distill-llama-70b';
+  static const String _outfitModel = 'llama-3.3-70b-versatile';
   static const String _chatModel = 'llama-3.3-70b-versatile';
  
   // ---------------------------------------------------------------------------
@@ -634,9 +634,9 @@ JSON FORMATI
       };
  
       final url =
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
-          '?key=${ApiConfig.geminiApiKey}';
- 
+        'https://generativelanguage.googleapis.com/v1beta/models/${ApiConfig.geminiVisionModel}:generateContent'
+        '?key=${ApiConfig.geminiApiKey}';
+  
       final response = await http
           .post(
             Uri.parse(url),
